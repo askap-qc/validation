@@ -1,7 +1,6 @@
 # validation
 
-### A wish-list of infromation required for ASKAP Spectral line data validation
-
+### A wish-list of infromation required for ASKAP spectral line data validation
 
 | Basic Info              | Status | Required file                    | Code variable  | Suggested by |
 |-------------------------|:------:|----------------------------------|----------------|--------------|
@@ -20,6 +19,8 @@
 | Synthesized beam (bmaj) |        |                                  |                | BQF          |
 | Synthesized beam (bmin) |        |                                  |                | BQF          |
 | Mosaic/ beam?           |        |                                  |                | BQF          |
+
+### Validation metrics required for ASKAP pectral line data
 
 | Validation metrics      | Status | Required file                    | Suggested by |
 |-------------------------|:------:|----------------------------------|--------------|
