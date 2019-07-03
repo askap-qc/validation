@@ -25,6 +25,6 @@
 | Validation metrics      | Status | Required file                    | Suggested by |
 |-------------------------|:------:|----------------------------------|--------------|
 | Flagging                |        |                                  | BQF          |
-| RMS                     |        |                                  | BQF          |
+| Max flux density        |        |                                  | BQF          |
 | Continuum subtraction   |        |                                  | BQF          |
 | Cleaning                |        |                                  | BQF          |
