@@ -30,6 +30,7 @@ from PIL import Image
 from astropy.stats import median_absolute_deviation
 import math
 from scipy.constants import k as k_B
+import subprocess 
 
 PI = math.pi
 
@@ -65,7 +66,6 @@ def get_Metadata(metafile):
 
     obs_date = 'Observed from'
     code = 'Code'
-    frame = 'Frame'
     duration = 'Total elapsed time'
     antenna = 'antennas'
 
@@ -87,49 +87,46 @@ def get_Metadata(metafile):
             field = TOKS[5]
             ra = TOKS[6][:-5]
             dec = TOKS[7][:-4]
+            
+    return n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec
+
+def get_Metadata_freq(metafile_science):
+    """
+    Getting basic information on observed field (one field only). Frequency and channel related items. 
+    """
+
+    mslist_file = open(metafile_science, 'r')
+    LINES = mslist_file.readlines()
+    mslist_file.close()
+
+    frame = 'Frame'
+    
+    for i in range(len(LINES)):
+        line = LINES[i]
         if line.find(frame) >=0:
             next_line = LINES[i+1]
             TOKS = next_line.split()
-            chan0 = float(TOKS[9])
             chan_width = float(TOKS[10])*1000. # convert kHz to Hz
-            bw = TOKS[11]
-            cfreq = TOKS[12]
-            
-    return n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, chan0, chan_width, bw, cfreq 
+            bw = TOKS[11]  #kHz
+            cfreq = TOKS[12] #MHz
 
-## Might have to implement a statement to check if commented out # is used in the param file
+    return chan_width, bw, cfreq    
+    
 
-def get_Channel_Range(param):
+def get_Frequency_Range(cubestat_contsub):
     """
-    Checking if channel range is used for processing.
+    Frequency range of the mosaic.
     """
     
-    channel_range = 'CHAN_RANGE_SCIENCE'
-
-    with open(param) as infile:
-        for line in infile:
-            if line.find(channel_range) >=0:
-                chan_range = line.partition('=')[2]
-                start_chan_range = chan_range.partition('-')[0]
-                end_chan_range = chan_range.partition('-')[2]
-                break
-            else:
-                chan_range = "Full bandwidth"
-                start_chan_range = False
-                end_chan_range = False
-
-    return chan_range, start_chan_range, end_chan_range
-
-def convert_Channel_Range(chan0, start_chan_range, end_chan_range, chan_width):
-    """
-    Converting channel range in channel to frequency.
-    """
+    line = subprocess.check_output(['sed', '-n', '3p', cubestat_contsub])
+    TOKS = line.split()
+    start_freq = round(float(TOKS[1]), 3)
     
-    freq_start_chan_range = round(chan0 + float(start_chan_range)*chan_width/1e6, 3) # MHz
-    freq_end_chan_range = round(chan0 + float(end_chan_range)*chan_width/1e6, 3) # MHz
+    line = subprocess.check_output(['tail', '-1', cubestat_contsub])
+    TOKS = line.split()
+    end_freq = round(float(TOKS[1]), 3)
 
-    return freq_start_chan_range, freq_end_chan_range
-
+    return start_freq, end_freq
 
 def make_Thumbnail(image, thumb_img, sizeX, sizeY):
     """
@@ -141,36 +138,46 @@ def make_Thumbnail(image, thumb_img, sizeX, sizeY):
 
     return thumb_img
 
-def qc_Max_Flux_Density (infile, pro_freq_range):
+def cal_beam_MADMFD(infile):
     """
-    Evaluate the max flux density.
+    Calculating the MAD of max flux density of each beam.
     """
-#    if pro_freq_range > 0:
-        
+
     data = np.loadtxt(infile)
-    rms, maxfdensity = data[:,3], data[:,8]
+    maxfdensity = data[:,8]
     mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 2)
-#    med_rms = round(np.median(rms),2)
+
+    return mad_maxfdensity
     
-    if (mad_maxfdensity >= 2.0):
-        maxfden_id = 'bad' 
-    elif (mad_maxfdensity < 2.0):
-        maxfden_id = 'good' 
+def qc_Max_Flux_Density (infile, delta_freq_range, mean_beamMADMFD):
+    """
+    Evaluating the max flux density (MFD) of the mosaic.
+    Metric to check for the effect of solar interference. 
+    First, check the processed mosaic contains at least 5 MHz of data. 
+    Then, calculating the MAD of MFD and comparing it to the mean of MADMFD of central 16 beams. 
+    """
+
+    if delta_freq_range > 5.0:  # need to have at least 5 MHz bandwidth of data to check for meaningful variation
+        data = np.loadtxt(infile)
+        maxfdensity = data[:,8]
+        mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 2)
+        if (mad_maxfdensity > mean_beamMADMFD): # need to compare to the centre 16 beams
+            maxfden_id = 'bad' 
+        else:
+            maxfden_id = 'good' 
+
     else:
-        maxfden_id = 'uncertain' ### currently don't have a condition that's uncertain
-
-#    if (med_rms <= expected_rms):
-#        med_rms_id = 'good'
-#    else:
-#        med_rms_id = 'bad' ### might need to have one more condition for acceptable rms if > expected rms
-
+        print 'Warning: Processed data are less than 5 MHz, variation of max flux density is not meaningful.'
+        maxfden_id = 'uncertain'
+        
     return mad_maxfdensity, maxfden_id
 
 
 def cal_Theoretical_RMS (n_ant, tobs, chan_width):
     """
-    Calculate theoretical rms noise for ASKAP. Assuming natural weighting and not taking into account fraction of flagged data. 
+    Calculating the theoretical rms noise for ASKAP. Assuming natural weighting and not taking into account fraction of flagged data. 
     """
+
     tsys = 50       # K
     antdiam = 12    # m
     aper_eff = 0.8  # aperture efficiency
@@ -183,33 +190,47 @@ def cal_Theoretical_RMS (n_ant, tobs, chan_width):
 
     return rms_jy
 
+
+def get_Flagging (flagging_file):
+    """
+    Getting flagging statistics.
+    """
+
+    line = subprocess.check_output(['tail', '-1', flagging_file])
+    TOKS = line.split()
+    flagged_stat = TOKS[-1]
+
+    return flagged_stat
+
+"""
+def check_Cleaning ():
+    
+    Checking if cleaning has performed down to the defined threshold. Both major and minor cycles. 
+    
+    This will involve ncore specified. 
+"""    
+
+
 ###########################################################
 
 # Required files 
 
-metafile = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
-param_file = sorted(glob.glob('slurmOutput/*.sh'))
-cubestat_cont = glob.glob(main_dir+'/cubeStats*contsub.txt')[0]
+metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
+metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
+cubestat_contsub = glob.glob(main_dir + '/cubeStats*contsub.txt')[0]
+flagging_file = glob.glob('slurmOutput/flag.out.txt')[0]  # temporary file from Wasim
 
-# Check if there is on parameter input file exists in the slurmOutput directory.
-# If it does, select the latest one. 
-
-if param_file >=1:
-    index = len(param_file)
-    param = param_file[index-1]
-else:
-    param = param_file[0]
 
 #############################    
 # HTML related tasks
 #############################
 
-html_name = 'spectral_QC_report_SB' + sbid + '.html'
+html_name = 'spectral_report_SB' + sbid + '.html'
 
 ### Making thumbnail images
 
-sizeX = str(120)
-sizeY = str(120)
+sizeX = str(70)
+sizeY = str(70)
 
 cube_plots = glob.glob(main_dir + '/cubePlot*.png')
 beamNoise_plots = glob.glob(main_dir + '/beamNoise*.png')
@@ -237,25 +258,33 @@ for image in beamMinMax_plots:
 
 # Calling the functions
 
-n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, chan0, chan_width, bw, cfreq = get_Metadata(metafile)
-chan_range, start_chan_range, end_chan_range = get_Channel_Range(param)
+n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec = get_Metadata(metafile)
+chan_width, bw, cfreq = get_Metadata_freq(metafile_science)
+start_freq, end_freq = get_Frequency_Range(cubestat_contsub)
 theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
-
-print theoretical_rms_mjy
 
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
 
-pro_freq_range = 0 # in the case of full bandwidth is used for processing
-if chan_range != "Full bandwidth":
-    freq_start_chan_range, freq_end_chan_range = convert_Channel_Range(chan0, start_chan_range, end_chan_range, chan_width)
-    pro_freq_range = freq_end_chan_range - freq_start_chan_range
-    chan_range = str(freq_start_chan_range)+'-'+str(freq_end_chan_range)
+freq_range = str(start_freq)+'--'+str(end_freq)
+delta_freq_range = end_freq - start_freq
 
 ### Validation parameters
 
-QC_mad_maxfden, QC_maxfden_id = qc_Max_Flux_Density(cubestat_cont, pro_freq_range) #Continuum subtracted
+flagged_stat = get_Flagging(flagging_file)
 
+beamstat_contsub = glob.glob(main_dir + '/' + field +'/cubeStats*beam??.contsub.txt')
+
+for beamfile in beamstat_contsub:
+    beam_num = beamfile[-14:-12]
+    if int(beam_num) < 16:
+        beamMADMFD = cal_beam_MADMFD(beamfile)
+
+mean_beamMADMFD = np.mean(beamMADMFD)
+
+QC_mad_maxfden, QC_maxfden_id = qc_Max_Flux_Density(cubestat_contsub, delta_freq_range, mean_beamMADMFD) #Continuum subtracted
+#QC_maxfden_id = 'bad'
+#QC_mad_maxfden = 2.4
 
 
 ##############################
@@ -313,6 +342,7 @@ html.write("""<h2 align="middle">Observation</h2>
                     <table width="100%" border="1">
                     <tr>
                         <th>SBID</th>
+                        <th>No. of Antennas</th>
                         <th>Obs Start Date/Time</th>
                         <th>Obs End Date/Time</th>   
                         <th>Duration<br>(hr)</th>
@@ -326,12 +356,14 @@ html.write("""<h2 align="middle">Observation</h2>
                         <td>{0}</td>
                         <td>{1}</td>
                         <td>{2}</td>
-                        <td>{3:.1f}</td>
-                        <td>{4}</td>
+                        <td>{3}</td>
+                        <td>{4:.1f}</td>
                         <td>{5}</td>
                         <td>{6}</td>
                         <td>{7}</td>
-                        <td>{8}""".format(sbid,
+                        <td>{8}</td>
+                        <td>{9}""".format(sbid,
+                                          n_ant,
                                           start_obs_date,
                                           end_obs_date,
                                           tobs_hr,
@@ -348,7 +380,7 @@ html.write("""</td>
                     <table width="100%" border="1">
                     <tr>
                         <th>ASKAPsoft<br>version</th>
-                        <th>Channel Range<br>(MHz)</th>
+                        <th>Frequency Range<br>(MHz)</th>
                         <th>Channel Width<br>(kHz)</th>
                         <th>Synthesised Beam bmaj<br>(arcsec)</th>
                         <th>Synthesised Beam bmin<br>(arcsec)</th>
@@ -359,7 +391,7 @@ html.write("""</td>
                         <td>{2}</td>
                         <td>{3}</td>
                         <td>{4}""".format(askapsoft,
-                                          chan_range,
+                                          freq_range,
                                           chan_width_kHz,
                                           bmaj,
                                           bmin))
@@ -373,6 +405,7 @@ html.write("""</td>
                     <th>Image Cube</th>          
                     <th>Continuum Subtracted Cube</th>
                     <th>Residual Cube</th>
+                    <th>Total Flagged Visibilities</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -383,6 +416,8 @@ html.write("""</td>
                     </td>
                     <td>
                     <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
+                    </td>
+                    <td>{12}
                     """.format(cube_plots[1],
                                    main_dir+'/'+ thumb_cubeplots[1],
                                    sizeX,
@@ -394,7 +429,8 @@ html.write("""</td>
                                    cube_plots[2],
                                    main_dir+'/'+ thumb_cubeplots[2],
                                    sizeX,
-                                   sizeY))
+                                   sizeY,
+                                   flagged_stat))
 
 
 html.write("""</td>
