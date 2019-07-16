@@ -1,0 +1,183 @@
+<!DOCTYPE HTML>
+              <html>
+                    <head>
+                    <style>
+                  body {
+                        background-color: white;
+                  }
+                  h1 {
+                      color: black;
+                  }
+                  p {
+                     color: black;
+                  }
+                  th, td {
+                         padding: 5px;
+                  }
+                  table {
+                         width: "100%";
+                         border: "1";
+                         border-spacing: 2px;
+                  }
+                  img {
+                       border: 1px solid #ddd; /* Gray border */
+                       border-radius: 4px;
+                       padding: 5px;
+                  }
+                  #good {
+                         background-color:#00FF00;
+                  }
+
+                  #uncertain {
+                         background-color:#FFD700;
+                  }
+                  #bad {
+                         background-color:#CD5C5C;
+                  }
+                  </style>
+                    </head>
+                    <body>
+                    <center>
+                    <title>ASKAP WALLABY Spectral Line Data Validation Report</title>
+                    <h1 align="middle">WALLABY Spectral Line Data Validation Report</h1>
+                    <h2 align="middle">Observation</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>SBID</th>
+                        <th>No. of Antennas</th>
+                        <th>Obs Start Date/Time</th>
+                        <th>Obs End Date/Time</th>   
+                        <th>Duration<br>(hr)</th>
+                        <th>Field</th>
+                        <th>R.A.</th>
+                        <th>Decl.</th>
+                        <th>Total Bandwidth <br>(kHz)</th>
+                        <th>Central Frequency<br>(MHz)</th>
+                    </tr>
+                    <tr align="middle">
+                        <td>8170</td>
+                        <td>36</td>
+                        <td>12-Mar-2019/09:01:07.2</td>
+                        <td>12-Mar-2019/14:01:12.7</td>
+                        <td>5.0</td>
+                        <td>EridanusB</td>
+                        <td>03:36:44.5</td>
+                        <td>-22.37.54.6</td>
+                        <td>144000.0</td>
+                        <td>1367.4907</td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Processed Image Cube</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>ASKAPsoft<br>version</th>
+                        <th>Frequency Range<br>(MHz)</th>
+                        <th>Channel Width<br>(kHz)</th>
+                        <th>Synthesised Beam bmaj<br>(arcsec)</th>
+                        <th>Synthesised Beam bmin<br>(arcsec)</th>
+                    </tr>
+                    <tr align="middle">
+                        <td>0.11.0</td>
+                        <td>1407.5--1419.481</td>
+                        <td>18.519</td>
+                        <td>30</td>
+                        <td>30</td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Mosaic Statistics</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Image Cube</th>          
+                    <th>Continuum Subtracted Cube</th>
+                    <th>Residual Cube</th>
+                    <th>Total Flagged Visibilities</th>
+                    <th>MAD RMS <br> mJy/beam</th>
+                    <th>Expected RMS <br> mJy/beam</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="13Mar/cubePlot-image.restored.i.SB8170.cube.png" target="_blank"><img src="13Mar/thumb_70_cubePlot-image.restored.i.SB8170.cube.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="13Mar/cubePlot-image.restored.i.SB8170.cube.contsub.png" target="_blank"><img src="13Mar/thumb_70_cubePlot-image.restored.i.SB8170.cube.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="13Mar/cubePlot-residual.i.SB8170.cube.png" target="_blank"><img src="13Mar/thumb_70_cubePlot-residual.i.SB8170.cube.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>41.17%</td>
+                    <td>0.03</td>
+                    <td>2.1
+                    </td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Beams Statistics</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Beam Image Cube</th>          
+                    <th>Continuum Subtracted Beam Cube</th>
+                    <th>Residual Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="13Mar/beamMinMax_image.restored.i.SB8170.cube.EridanusB.png" target="_blank"><img src="13Mar/thumb_70_beamMinMax_image.restored.i.SB8170.cube.EridanusB.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</br></p>
+                    </td>
+                    <td>
+                    <a href="13Mar/beamMinMax_image.restored.i.SB8170.cube.EridanusB.contsub.png" target="_blank"><img src="13Mar/thumb_70_beamMinMax_image.restored.i.SB8170.cube.EridanusB.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</br></p>
+                    </td>
+                    <td>
+                    <a href="13Mar/beamMinMax_residual.i.SB8170.cube.EridanusB.png" target="_blank"><img src="13Mar/thumb_70_beamMinMax_residual.i.SB8170.cube.EridanusB.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</br></p>
+                    </td>
+                    <tr align="middle">
+                    <td>
+                    <a href="13Mar/beamNoise_image.restored.i.SB8170.cube.EridanusB.png" target="_blank"><img src="13Mar/thumb_70_beamNoise_image.restored.i.SB8170.cube.EridanusB.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</br></p>
+                    </td>
+                    <td>
+                    <a href="13Mar/beamNoise_image.restored.i.SB8170.cube.EridanusB.contsub.png" target="_blank"><img src="13Mar/thumb_70_beamNoise_image.restored.i.SB8170.cube.EridanusB.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</br></p>
+                    </td>
+                    <td>
+                    <a href="13Mar/beamNoise_residual.i.SB8170.cube.EridanusB.png" target="_blank"><img src="13Mar/thumb_70_beamNoise_residual.i.SB8170.cube.EridanusB.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</br></p>
+                    </td>
+                    </tr>
+                    </table>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th colspan="2">Continuum Subtracted Beam Cube</th>
+                    </tr>
+                    <tr>
+                    <td>
+                    <a href="Figures/beamStat_MADMFD.png" target="_blank"><img src="Figures/thumb_70_beamStat_MADMFD.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>MAD Max Flux Density</br></p>
+                    </td>
+                    <td>
+                    <a href="Figures/beamStat_AvgRMS.png" target="_blank"><img src="Figures/thumb_70_beamStat_AvgRMS.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Mean RMS</br></p>
+                    </td> 
+              </tr>
+              </table>
+              <h2 align="middle">Validation Metrics</h2>
+              <table width="100%" border="1">
+              <tr>
+              <th>MAD Max Flux Density <br>(mJy/beam)</th>
+              <th>item</th>
+              <th>item</th>   
+              </tr>
+              <tr align="middle">
+              <td id='good'>2.0</td>
+              <td id='good'>2.0</td>
+              <td id='good'>2.0</td>
+              </tr>
+              </table>
+                                             
+              <p align=left>Generated at 2019-07-16 14:51:13.537087 <br>
+              <i> Report bugs to 
+              <a href="mailto:biqing.for@icrar.org">Bi-Qing For</a></i>
+              </p>
+
+              </body>
+              </html>
