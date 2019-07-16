@@ -31,9 +31,11 @@ from astropy.stats import median_absolute_deviation
 import math
 from scipy.constants import k as k_B
 import subprocess 
+import matplotlib.pyplot as plt 
 
 PI = math.pi
 
+fig_dir = 'Figures'
 main_dir = sys.argv[1]
 sbid = str(sys.argv[2])
 askapsoft = '0.11.0'  # This is a random number until finding out where this information is provided
@@ -128,15 +130,17 @@ def get_Frequency_Range(cubestat_contsub):
 
     return start_freq, end_freq
 
-def make_Thumbnail(image, thumb_img, sizeX, sizeY):
+
+def make_Thumbnail(image, thumb_img, sizeX, sizeY, dir):
     """
     Making thumbnail image.
     """
     im = Image.open(image)
     im.thumbnail(sizeX, sizeY)
-    im.save(main_dir+ '/' + thumb_img)
+    im.save(dir+ '/' + thumb_img)
 
     return thumb_img
+
 
 def cal_beam_MADMFD(infile):
     """
@@ -149,29 +153,33 @@ def cal_beam_MADMFD(infile):
 
     return mad_maxfdensity
     
-def qc_Max_Flux_Density (infile, delta_freq_range, mean_beamMADMFD):
+
+def cal_beam_AvgRMS(infile):
     """
-    Evaluating the max flux density (MFD) of the mosaic.
-    Metric to check for the effect of solar interference. 
-    First, check the processed mosaic contains at least 5 MHz of data. 
-    Then, calculating the MAD of MFD and comparing it to the mean of MADMFD of central 16 beams. 
+    Calculating the average RMS of each beam. 
+    """
+    
+    data = np.loadtxt(infile)
+    rms = data[:,3]
+    avg_rms = round(np.mean(rms), 2)
+    
+    return avg_rms
+
+    
+
+def cal_MAD_RMS (infile):
+    """
+    Evaluating the RMS of the mosaic. 
     """
 
-    if delta_freq_range > 5.0:  # need to have at least 5 MHz bandwidth of data to check for meaningful variation
-        data = np.loadtxt(infile)
-        maxfdensity = data[:,8]
-        mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 2)
-        if (mad_maxfdensity > mean_beamMADMFD): # need to compare to the centre 16 beams
-            maxfden_id = 'bad' 
-        else:
-            maxfden_id = 'good' 
+    data = np.loadtxt(infile)
+    rms = data[:,3]
+    mad_rms = round(median_absolute_deviation(rms), 2)
+    
+    return mad_rms
 
-    else:
-        print 'Warning: Processed data are less than 5 MHz, variation of max flux density is not meaningful.'
-        maxfden_id = 'uncertain'
-        
-    return mad_maxfdensity, maxfden_id
 
+    
 
 def cal_Theoretical_RMS (n_ant, tobs, chan_width):
     """
@@ -190,6 +198,57 @@ def cal_Theoretical_RMS (n_ant, tobs, chan_width):
 
     return rms_jy
 
+def cal_binnedAvg(dataArray, N):
+    """
+    Calculating the average value of each bin. N is the specified bin number.  
+    """
+    
+    mean_bin = np.cumsum(dataArray, 0)[N-1::N]/float(N)
+    mean_bin[1:] = mean_bin[1:] - mean_bin[:-1]
+    return mean_bin
+
+"""
+def qc_Max_Flux_Density (infile, delta_freq_range, mean_beamMADMFD):
+
+    Evaluating the max flux density (MFD) of the mosaic.
+    Metric to check for the effect of solar interference. 
+    First, check the processed mosaic contains at least 5 MHz of data. 
+    Then, calculating the MAD of MFD and comparing it to the mean of MADMFD of central 16 beams. 
+
+
+    if delta_freq_range > 5.0:  # need to have at least 5 MHz bandwidth of data to check for meaningful variation
+        data = np.loadtxt(infile)
+        maxfdensity = data[:,8]
+        mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 2)
+        if (mad_maxfdensity > mean_beamMADMFD): # need to compare to the centre 16 beams
+            maxfden_id = 'bad' 
+        else:
+            maxfden_id = 'good' 
+
+    else:
+        print 'Warning: Processed data are less than 5 MHz, variation of max flux density is not meaningful.'
+        maxfden_id = 'uncertain'
+        
+    return mad_maxfdensity, maxfden_id
+
+    
+def qc_RMS(infile, theoretical_rms_mjy):
+
+    Evaluationg the RMS values of mosaic in ~1 MHz interval.  
+
+    
+    N = 54
+    count = 0
+    
+    data = np.loadtxt(infile)
+    rms = data[:,3]
+    bin_rms = cal_binnedAvg(rms, N)
+    if bin_rms.any > theoretical_rms_mjy:
+        count += 1  
+    
+    return bin_rms
+
+"""
 
 def get_Flagging (flagging_file):
     """
@@ -202,6 +261,68 @@ def get_Flagging (flagging_file):
 
     return flagged_stat
 
+
+def BeamStat_plot(infile, item):
+    """
+    Plotting and visualising 36 beam statistics
+    """
+
+    if item == 'MADMFD':
+        vmin = 0
+        vmax = 1.0
+        title = 'MAD Max Flux Density'
+        plot_name = 'beamStat_MADMFD.png'
+        saved_fig = fig_dir+'/'+plot_name
+        
+
+    if item == 'Avg_RMS':
+        vmin = 2.0
+        vmax = 4.0
+        title = 'Mean RMS'
+        plot_name = 'beamStat_AvgRMS.png'
+        saved_fig = fig_dir+'/'+plot_name
+    
+    n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16]
+
+    XPOS, YPOS = [], []
+
+    x=0
+    for j in xrange(0,6,1):
+        x += 0.1
+        y=0
+        for k in xrange(0,6,1):
+            y += 0.2
+            XPOS.append(x)
+            YPOS.append(y)
+
+    for i in range(36):
+        bnum = n[i]
+        if bnum < 10:
+            infile = 'cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field + '.beam0' + str(bnum) +'.contsub.txt'
+        else:
+            infile = 'cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field + '.beam' + str(bnum) +'.contsub.txt'
+        if os.path.isfile(main_dir + '/' + field +'/'+infile):
+            if item == 'MADMFD': 
+                beamstat = cal_beam_MADMFD(main_dir + '/' + field +'/'+infile)
+            if item == 'Avg_RMS':
+                beamstat = cal_beam_AvgRMS(main_dir + '/' + field +'/'+infile)
+        else:
+            beamstat = 0.5 ### some dummy value, this statement is no longer needed once we have processed 36 beams at once.
+            
+        plt.scatter(XPOS[i],YPOS[i], s=1500, c=beamstat, cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
+        plt.text(XPOS[i], YPOS[i], n[i])
+
+    plt.colorbar()
+    plt.xlim(0,0.7)
+    plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    plt.title(title)
+    plt.savefig(saved_fig)
+    plt.clf()
+
+    return saved_fig, plot_name
+
+
+
 """
 def check_Cleaning ():
     
@@ -209,6 +330,9 @@ def check_Cleaning ():
     
     This will involve ncore specified. 
 """    
+"""
+def plot(infile, x, y, c=None, yerr=None, figure=None, arrows=None, xlabel='', ylabel='')
+"""
 
 
 ###########################################################
@@ -243,17 +367,17 @@ thumb_beamMinMax = []
 for image in cube_plots:
     thumb_img = 'thumb_'+ sizeX + '_'+ image.partition('/')[2]
     thumb_cubeplots.append(thumb_img)
-    make_Thumbnail(image, thumb_img, sizeX, sizeY)
+    make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
 
 for image in beamNoise_plots:
     thumb_img = 'thumb_'+ sizeX + '_'+ image.partition('/')[2]
     thumb_beamNoise.append(thumb_img)
-    make_Thumbnail(image, thumb_img, sizeX, sizeY)
+    make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
 
 for image in beamMinMax_plots:
     thumb_img = 'thumb_'+ sizeX + '_'+ image.partition('/')[2]
     thumb_beamMinMax.append(thumb_img)
-    make_Thumbnail(image, thumb_img, sizeX, sizeY)
+    make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
 
 
 # Calling the functions
@@ -262,6 +386,7 @@ n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec = get_Metadata(metafil
 chan_width, bw, cfreq = get_Metadata_freq(metafile_science)
 start_freq, end_freq = get_Frequency_Range(cubestat_contsub)
 theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
+
 
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
@@ -275,16 +400,26 @@ flagged_stat = get_Flagging(flagging_file)
 
 beamstat_contsub = glob.glob(main_dir + '/' + field +'/cubeStats*beam??.contsub.txt')
 
-for beamfile in beamstat_contsub:
-    beam_num = beamfile[-14:-12]
-    if int(beam_num) < 16:
-        beamMADMFD = cal_beam_MADMFD(beamfile)
+if not os.path.isdir(fig_dir):
+    os.system('mkdir '+ fig_dir)
 
-mean_beamMADMFD = np.mean(beamMADMFD)
 
-QC_mad_maxfden, QC_maxfden_id = qc_Max_Flux_Density(cubestat_contsub, delta_freq_range, mean_beamMADMFD) #Continuum subtracted
-#QC_maxfden_id = 'bad'
-#QC_mad_maxfden = 2.4
+beam_MADMFD_fig, MADMFD_plot = BeamStat_plot(cubestat_contsub, 'MADMFD')
+thumb_img = 'thumb_'+ sizeX + '_'+ MADMFD_plot
+make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
+
+beam_Avg_RMS_fig, AvgRMS_plot =BeamStat_plot(cubestat_contsub, 'Avg_RMS')
+thumb_img = 'thumb_'+ sizeX + '_'+ AvgRMS_plot
+make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
+
+
+#QC_mad_maxfden, QC_maxfden_id = qc_Max_Flux_Density(cubestat_contsub, delta_freq_range) #Continuum subtracted
+QC_mad_maxfden = '2.0'
+QC_maxfden_id = 'good'
+
+mad_rms = cal_MAD_RMS(cubestat_contsub)
+#bin_value = qc_RMS(cubestat_contsub, theoretical_rms_mjy)
+
 
 
 ##############################
@@ -406,6 +541,8 @@ html.write("""</td>
                     <th>Continuum Subtracted Cube</th>
                     <th>Residual Cube</th>
                     <th>Total Flagged Visibilities</th>
+                    <th>MAD RMS <br> mJy/beam</th>
+                    <th>Expected RMS <br> mJy/beam</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -417,20 +554,24 @@ html.write("""</td>
                     <td>
                     <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
                     </td>
-                    <td>{12}
+                    <td>{12}</td>
+                    <td>{13}</td>
+                    <td>{14:.1f}
                     """.format(cube_plots[1],
-                                   main_dir+'/'+ thumb_cubeplots[1],
-                                   sizeX,
-                                   sizeY,
-                                   cube_plots[0],
-                                   main_dir+'/'+ thumb_cubeplots[0],
-                                   sizeX,
-                                   sizeY,
-                                   cube_plots[2],
-                                   main_dir+'/'+ thumb_cubeplots[2],
-                                   sizeX,
-                                   sizeY,
-                                   flagged_stat))
+                               main_dir+'/'+ thumb_cubeplots[1],
+                               sizeX,
+                               sizeY,
+                               cube_plots[0],
+                               main_dir+'/'+ thumb_cubeplots[0],
+                               sizeX,
+                               sizeY,
+                               cube_plots[2],
+                               main_dir+'/'+ thumb_cubeplots[2],
+                               sizeX,
+                               sizeY,
+                               flagged_stat,
+                               mad_rms,
+                               theoretical_rms_mjy))
 
 
 html.write("""</td>
@@ -469,29 +610,54 @@ html.write("""</td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                     <br><p>Stdev, MADFM</br></p>
                     """.format(beamMinMax_plots[1],
-                                    main_dir+'/'+ thumb_beamMinMax[1],
-                                    sizeX,
-                                    sizeY,
-                                    beamMinMax_plots[0],
-                                    main_dir+'/'+ thumb_beamMinMax[0],
-                                    sizeX,
-                                    sizeY,
-                                    beamMinMax_plots[2],
-                                    main_dir+'/'+ thumb_beamMinMax[2],
-                                    sizeX,
-                                    sizeY,
-                                    beamNoise_plots[0],
-                                    main_dir+'/'+ thumb_beamNoise[0],
-                                    sizeX,
-                                    sizeY,
-                                    beamNoise_plots[1],
-                                    main_dir+'/'+ thumb_beamNoise[1],
-                                    sizeX,
-                                    sizeY,
-                                    beamNoise_plots[2],
-                                    main_dir+'/'+ thumb_beamNoise[2],
-                                    sizeX,
-                                    sizeY))
+                               main_dir+'/'+ thumb_beamMinMax[1],
+                               sizeX,
+                               sizeY,
+                               beamMinMax_plots[0],
+                               main_dir+'/'+ thumb_beamMinMax[0],
+                               sizeX,
+                               sizeY,
+                               beamMinMax_plots[2],
+                               main_dir+'/'+ thumb_beamMinMax[2],
+                               sizeX,
+                               sizeY,
+                               beamNoise_plots[0],
+                               main_dir+'/'+ thumb_beamNoise[0],
+                               sizeX,
+                               sizeY,
+                               beamNoise_plots[1],
+                               main_dir+'/'+ thumb_beamNoise[1],
+                               sizeX,
+                               sizeY,
+                               beamNoise_plots[2],
+                               main_dir+'/'+ thumb_beamNoise[2],
+                               sizeX,
+                               sizeY))
+
+
+html.write("""</td>
+                    </tr>
+                    </table>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th colspan="2">Continuum Subtracted Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="{0}" target="_blank"><img src="{1}" width="{2}" height="{3}" alt="thumbnail"></a>
+                    <br><p>MAD Max Flux Density</br></p>
+                    </td>
+                    <td>
+                    <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
+                    <br><p>Mean RMS</br></p>
+                    """.format(fig_dir+'/'+'beamStat_MADMFD.png',
+                               fig_dir+'/'+ 'thumb_'+ sizeX + '_beamStat_MADMFD.png',
+                               sizeX,
+                               sizeY,
+                               fig_dir+'/'+'beamStat_AvgRMS.png',
+                               fig_dir+'/'+ 'thumb_'+ sizeX + '_beamStat_AvgRMS.png',
+                               sizeX,
+                               sizeY))
 
 ### Finish HTML report with generated time stamp
 
@@ -501,7 +667,7 @@ html.write("""</td>
               <h2 align="middle">Validation Metrics</h2>
               <table width="100%" border="1">
               <tr>
-              <th>Max Flux Density <br>(Jy)</th>
+              <th>MAD Max Flux Density <br>(mJy/beam)</th>
               <th>item</th>
               <th>item</th>   
               </tr>
