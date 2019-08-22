@@ -2,6 +2,8 @@
 # This script generates an ASKAP spectral line cube QC HTML report. 
 # This version runs on the final continuum subtracted cube/mosaic. 
 #
+# Compatibility: Python version 3.1
+#
 # Required directories and files:
 #
 # -- metadata/mslist-scienceData*txt
@@ -11,12 +13,12 @@
 # To run type:
 #
 # "python <script name> <main directory name> <SBID>
-# e.g. python val_v1.0.py Eridanus_processed 1234
+# e.g. python ASKAP_specline_val.py Eridanus_processed 1234
 #
 # Author: Bi-Qing For
 # Email: biqing.for@icrar.org
 # 
-# Modified Date: 2 July 2019
+# Modified Date: 22 August 2019
 #
 ################################################################################
 
@@ -26,6 +28,7 @@ import glob
 from astropy.io import fits
 import numpy as np
 from datetime import datetime
+import PIL 
 from PIL import Image
 from astropy.stats import median_absolute_deviation
 import math
@@ -38,7 +41,6 @@ PI = math.pi
 fig_dir = 'Figures'
 main_dir = sys.argv[1]
 sbid = str(sys.argv[2])
-askapsoft = '0.11.0'  # This is a random number until finding out where this information is provided
 bmaj = '30' # This is a random number 
 bmin = '30' # This is a random number
 
@@ -56,6 +58,33 @@ bmin = '30' # This is a random number
 #    hdu = fits.getheader(fitsimage)
 #    bmaj = round(float(hdu.header['BMAJ'])*3600., 2)  #arcsec
 #    bmin = round(float(hdu.header['BMIN'])*3600., 2)  #arcsec
+
+def get_Version (param):
+    """
+    Getting the latest ASKAPsoft version used for the data reduction
+    """
+
+    line = subprocess.check_output(['tail', '-5', param]) # Grab the last 5 lines
+    str_line = line.decode('utf-8')
+    newline = str_line.splitlines()[0] # This picks up the first line of the 5 
+    TOKS = newline.split()
+    askapsoft = TOKS[-1]
+
+    return askapsoft
+        
+
+def get_Flagging (flagging_file):
+    """
+    Getting flagging statistics.
+    """
+
+    line = subprocess.check_output(['tail', '-1', flagging_file])
+    str_line = line.decode('utf-8')
+    TOKS = str_line.split()
+    flagged_stat = TOKS[-1]
+
+    return flagged_stat
+
     
 def get_Metadata(metafile):
     """
@@ -135,8 +164,10 @@ def make_Thumbnail(image, thumb_img, sizeX, sizeY, dir):
     """
     Making thumbnail image.
     """
+    
+    size = sizeX, sizeY
     im = Image.open(image)
-    im.thumbnail(sizeX, sizeY)
+    im.thumbnail(size)
     im.save(dir+ '/' + thumb_img)
 
     return thumb_img
@@ -164,21 +195,48 @@ def cal_beam_AvgRMS(infile):
     avg_rms = round(np.mean(rms), 2)
     
     return avg_rms
-
     
 
-def cal_MAD_RMS (infile):
+def cal_mosaic_Stats (infile):
     """
-    Evaluating the RMS of the mosaic. 
+    Calculating MAD RMS and mean MADFM for the mosaic cube. 
     """
 
     data = np.loadtxt(infile)
-    rms = data[:,3]
-    mad_rms = round(median_absolute_deviation(rms), 2)
+    rms, madfm = data[:,3], data[:,5]
     
-    return mad_rms
+    med_madfm = np.median(madfm)
+    mad_rms = round(median_absolute_deviation(rms), 2)
 
+    return mad_rms, med_madfm
 
+def qc_Bad_Chans (infile, med_madfm):
+    """
+    Checking for bad channels in the mosaic cube.
+    """
+
+    BAD_CHAN = []
+
+    stat_file = open(infile, 'r')
+    LINES = stat_file.readlines()[2:]
+    stat_file.close()
+    value = med_madfm + 0.4  # Deviation from the med_madfm. Need to check with larger sample of data to decide the best value. 
+
+    for i in range(len(LINES)):
+        line = LINES[i]
+        TOKS = line.split()
+        chan = TOKS[0]
+        madfm = float(TOKS[5])
+        if madfm > value:
+            BAD_CHAN.append(chan)
+
+    if BAD_CHAN == []:
+        BAD_CHAN.append('none')
+        QC_badchan_id = 'good'
+    else:
+        QC_badchan_id = 'bad'
+        
+    return BAD_CHAN, QC_badchan_id
     
 
 def cal_Theoretical_RMS (n_ant, tobs, chan_width):
@@ -250,25 +308,13 @@ def qc_RMS(infile, theoretical_rms_mjy):
 
 """
 
-def get_Flagging (flagging_file):
-    """
-    Getting flagging statistics.
-    """
-
-    line = subprocess.check_output(['tail', '-1', flagging_file])
-    TOKS = line.split()
-    flagged_stat = TOKS[-1]
-
-    return flagged_stat
-
-
 def BeamStat_plot(infile, item):
     """
     Plotting and visualising 36 beam statistics
     """
 
     if item == 'MADMFD':
-        vmin = 0
+        vmin = 0.1   # This is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
         vmax = 1.0
         title = 'MAD Max Flux Density'
         plot_name = 'beamStat_MADMFD.png'
@@ -287,10 +333,10 @@ def BeamStat_plot(infile, item):
     XPOS, YPOS = [], []
 
     x=0
-    for j in xrange(0,6,1):
+    for j in range(0,6,1):
         x += 0.1
         y=0
-        for k in xrange(0,6,1):
+        for k in range(0,6,1):
             y += 0.2
             XPOS.append(x)
             YPOS.append(y)
@@ -306,18 +352,19 @@ def BeamStat_plot(infile, item):
                 beamstat = cal_beam_MADMFD(main_dir + '/' + field +'/'+infile)
             if item == 'Avg_RMS':
                 beamstat = cal_beam_AvgRMS(main_dir + '/' + field +'/'+infile)
-        else:
-            beamstat = 0.5 ### some dummy value, this statement is no longer needed once we have processed 36 beams at once.
-            
-        plt.scatter(XPOS[i],YPOS[i], s=1500, c=beamstat, cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
+#        else:
+#            beamstat = 0.5
+
+        plt.scatter([XPOS[i]], [YPOS[i]], s=1500, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
         plt.text(XPOS[i], YPOS[i], n[i])
 
-    plt.colorbar()
     plt.xlim(0,0.7)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
     plt.title(title)
+    cb = plt.colorbar()
+    cb.set_label('mJy / beam')
     plt.savefig(saved_fig)
-    plt.clf()
+    plt.close()
 
     return saved_fig, plot_name
 
@@ -343,6 +390,17 @@ metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
 cubestat_contsub = glob.glob(main_dir + '/cubeStats*contsub.txt')[0]
 flagging_file = glob.glob('slurmOutput/flag.out.txt')[0]  # temporary file from Wasim
+param_file = sorted(glob.glob('slurmOutput/*.sh'))
+
+# Check if there is more than one parameter input .sh file in the slurmOutput directory.
+# If it does, select the latest one.
+# More than one version is used. Reporting the latest version of ASKAPSoft for final data reduction. 
+
+if len(param_file) >=1:
+    index = len(param_file)
+    param = param_file[index-1]
+else:
+    param = param_file[0]
 
 
 #############################    
@@ -353,8 +411,8 @@ html_name = 'spectral_report_SB' + sbid + '.html'
 
 ### Making thumbnail images
 
-sizeX = str(70)
-sizeY = str(70)
+sizeX = 70
+sizeY = 70
 
 cube_plots = glob.glob(main_dir + '/cubePlot*.png')
 beamNoise_plots = glob.glob(main_dir + '/beamNoise*.png')
@@ -365,28 +423,28 @@ thumb_beamNoise = []
 thumb_beamMinMax = []
 
 for image in cube_plots:
-    thumb_img = 'thumb_'+ sizeX + '_'+ image.partition('/')[2]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.partition('/')[2]
     thumb_cubeplots.append(thumb_img)
     make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
 
 for image in beamNoise_plots:
-    thumb_img = 'thumb_'+ sizeX + '_'+ image.partition('/')[2]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.partition('/')[2]
     thumb_beamNoise.append(thumb_img)
     make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
 
 for image in beamMinMax_plots:
-    thumb_img = 'thumb_'+ sizeX + '_'+ image.partition('/')[2]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.partition('/')[2]
     thumb_beamMinMax.append(thumb_img)
     make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
 
 
 # Calling the functions
 
+askapsoft = get_Version(param)
 n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec = get_Metadata(metafile)
 chan_width, bw, cfreq = get_Metadata_freq(metafile_science)
 start_freq, end_freq = get_Frequency_Range(cubestat_contsub)
 theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
-
 
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
@@ -403,13 +461,12 @@ beamstat_contsub = glob.glob(main_dir + '/' + field +'/cubeStats*beam??.contsub.
 if not os.path.isdir(fig_dir):
     os.system('mkdir '+ fig_dir)
 
-
 beam_MADMFD_fig, MADMFD_plot = BeamStat_plot(cubestat_contsub, 'MADMFD')
-thumb_img = 'thumb_'+ sizeX + '_'+ MADMFD_plot
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
 make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
 
-beam_Avg_RMS_fig, AvgRMS_plot =BeamStat_plot(cubestat_contsub, 'Avg_RMS')
-thumb_img = 'thumb_'+ sizeX + '_'+ AvgRMS_plot
+beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot(cubestat_contsub, 'Avg_RMS')
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
 make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
 
 
@@ -417,8 +474,11 @@ make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
 QC_mad_maxfden = '2.0'
 QC_maxfden_id = 'good'
 
-mad_rms = cal_MAD_RMS(cubestat_contsub)
+mad_rms, med_madfm = cal_mosaic_Stats(cubestat_contsub)
+bad_chans, QC_badchan_id = qc_Bad_Chans(cubestat_contsub, med_madfm)
+
 #bin_value = qc_RMS(cubestat_contsub, theoretical_rms_mjy)
+
 
 
 
@@ -514,7 +574,7 @@ html.write("""</td>
                     <h2 align="middle">Processed Image Cube</h2>
                     <table width="100%" border="1">
                     <tr>
-                        <th>ASKAPsoft<br>version</th>
+                        <th>ASKAPsoft<br>version*</th>
                         <th>Frequency Range<br>(MHz)</th>
                         <th>Channel Width<br>(kHz)</th>
                         <th>Synthesised Beam bmaj<br>(arcsec)</th>
@@ -540,9 +600,10 @@ html.write("""</td>
                     <th>Image Cube</th>          
                     <th>Continuum Subtracted Cube</th>
                     <th>Residual Cube</th>
-                    <th>Total Flagged Visibilities</th>
+                    <th>Total <br> Flagged Visibilities</th>
                     <th>MAD RMS <br> mJy/beam</th>
                     <th>Expected RMS <br> mJy/beam</th>
+                    <th>Bad Channel</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -556,7 +617,8 @@ html.write("""</td>
                     </td>
                     <td>{12}</td>
                     <td>{13}</td>
-                    <td>{14:.1f}
+                    <td>{14:.1f}</td>
+                    <td id='{15}'>{16}
                     """.format(cube_plots[1],
                                main_dir+'/'+ thumb_cubeplots[1],
                                sizeX,
@@ -571,7 +633,9 @@ html.write("""</td>
                                sizeY,
                                flagged_stat,
                                mad_rms,
-                               theoretical_rms_mjy))
+                               theoretical_rms_mjy,
+                               QC_badchan_id,
+                               bad_chans))
 
 
 html.write("""</td>
@@ -651,11 +715,11 @@ html.write("""</td>
                     <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
                     <br><p>Mean RMS</br></p>
                     """.format(fig_dir+'/'+'beamStat_MADMFD.png',
-                               fig_dir+'/'+ 'thumb_'+ sizeX + '_beamStat_MADMFD.png',
+                               fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_MADMFD.png',
                                sizeX,
                                sizeY,
                                fig_dir+'/'+'beamStat_AvgRMS.png',
-                               fig_dir+'/'+ 'thumb_'+ sizeX + '_beamStat_AvgRMS.png',
+                               fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_AvgRMS.png',
                                sizeX,
                                sizeY))
 
@@ -685,7 +749,8 @@ html.write("""</td>
               </tr>
               </table>
                                              
-              <p align=left>Generated at {0} <br>
+              <p align=left>* If more than one version of ASKAPsoft is used for the whole reduction, the latest one is reported.<br>
+              Generated at {0} <br>
               <i> Report bugs to 
               <a href="mailto:biqing.for@icrar.org">Bi-Qing For</a></i>
               </p>
@@ -698,5 +763,5 @@ html.write("""</td>
 
 
 html.close()
-print "Spectral line validation report written to '{0}'.".format(html_name)
+print ("Spectral line validation report written to '{0}'.".format(html_name))
                     
