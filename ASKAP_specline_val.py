@@ -1,14 +1,14 @@
 ################################################################################
-# This script generates an ASKAP spectral line cube QC HTML report. 
+# This script generates an ASKAP spectral line cube HTML report. 
 # This version runs on the final continuum subtracted cube/mosaic. 
 #
-# Compatibility: Python version 3.1
+# Compatibility: Python version 3.x
 #
 # Required directories and files:
 #
 # -- metadata/mslist-scienceData*txt
 # -- slurmOutput/*sh
-# 
+# -- main_dir/image.restored.i.SB<SBID>.cube.contsub.fits
 #
 # To run type:
 #
@@ -18,7 +18,7 @@
 # Author: Bi-Qing For
 # Email: biqing.for@icrar.org
 # 
-# Modified Date: 22 August 2019
+# Modified Date: 27 August 2019
 #
 ################################################################################
 
@@ -31,37 +31,72 @@ from datetime import datetime
 import PIL 
 from PIL import Image
 from astropy.stats import median_absolute_deviation
+from astropy.utils.exceptions import AstropyWarning
+import warnings
 import math
 from scipy.constants import k as k_B
 import subprocess 
 import matplotlib.pyplot as plt 
+from astroquery.vizier import Vizier
+import astropy.coordinates as coord
+import astropy.units as u
+from astropy.io.fits import getheader
 
 PI = math.pi
+
+#ignore annoying astropy warnings 
+warnings.simplefilter('ignore', category=AstropyWarning)
 
 fig_dir = 'Figures'
 main_dir = sys.argv[1]
 sbid = str(sys.argv[2])
-bmaj = '30' # This is a random number 
-bmin = '30' # This is a random number
-
-### Need to do checking if files exist
 
 #################################################
 #       Functions for the main program
 #################################################
 
-#def get_FitsHeader(fitsimage):
-#    """
-#    Getting basic information of processed mosaic
-#    """
+def get_FitsHeader(fitsimage):
+    """
+    Getting basic information of processed mosaic
+    """
+    hdu = getheader(fitsimage)
+    bmaj = round(float(hdu['BMAJ'])*3600., 2)  #arcsec
+    bmin = round(float(hdu['BMIN'])*3600., 2)  #arcsec
 
-#    hdu = fits.getheader(fitsimage)
-#    bmaj = round(float(hdu.header['BMAJ'])*3600., 2)  #arcsec
-#    bmin = round(float(hdu.header['BMIN'])*3600., 2)  #arcsec
+    return bmaj, bmin
 
+def get_HIPASS (ra, dec):
+    """
+    Getting the HIPASS sources (HICAT; Meyer et al. 2004) within the 6x6 sq deg field through VizieR. 
+    """
+
+    print ("Retrieving HIPASS sources from Vizier. Depending on connection, this might take a while....")
+    
+    Vizier.ROW_LIMIT = -1
+    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat')
+
+    TOKS_RA = ra.split(":")
+    ra_hr = float(TOKS_RA[0])
+    ra_min = float(TOKS_RA[1])
+    ra_sec = float(TOKS_RA[2])
+    ra_deg = round(15.0*(ra_hr + ra_min/60. + ra_sec/3600.), 5) #Converting it to decimal degree
+    TOKS_DEC = dec.split(".", 2)
+    dec_deg = float(TOKS_DEC[0])
+    dec_arcmin = float(TOKS_DEC[1])
+    dec_arcsec = float(TOKS_DEC[2])
+    dec_tdeg = round(dec_deg + dec_arcmin/60. + dec_arcsec/3600., 5) #Converting it to decimal degree
+    
+    hipass_result = v.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
+
+    hipass_cat = 'hipass.txt'
+    print (hipass_result['VIII/73/hicat'], file=open(fig_dir + '/' + hipass_cat,'w'))
+
+    return hipass_cat
+
+    
 def get_Version (param):
     """
-    Getting the latest ASKAPsoft version used for the data reduction
+    Getting the latest ASKAPsoft version used for the data reduction.
     """
 
     line = subprocess.check_output(['tail', '-5', param]) # Grab the last 5 lines
@@ -78,7 +113,7 @@ def get_Flagging (flagging_file):
     Getting flagging statistics.
     """
 
-    line = subprocess.check_output(['tail', '-1', flagging_file])
+    line = subprocess.check_output(['tail', '-1', flagging_file]) #Grab the last line
     str_line = line.decode('utf-8')
     TOKS = str_line.split()
     flagged_stat = TOKS[-1]
@@ -88,7 +123,7 @@ def get_Flagging (flagging_file):
     
 def get_Metadata(metafile):
     """
-    Getting basic information on observed field (one field only).
+    Getting basic information on observed field (one field only). 
     """
 
     mslist_file = open(metafile, 'r')
@@ -310,7 +345,7 @@ def qc_RMS(infile, theoretical_rms_mjy):
 
 def BeamStat_plot(infile, item):
     """
-    Plotting and visualising 36 beam statistics
+    Plotting and visualising statistics of 36 beams. 
     """
 
     if item == 'MADMFD':
@@ -328,7 +363,7 @@ def BeamStat_plot(infile, item):
         plot_name = 'beamStat_AvgRMS.png'
         saved_fig = fig_dir+'/'+plot_name
     
-    n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16]
+    n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16] # beam number
 
     XPOS, YPOS = [], []
 
@@ -383,6 +418,8 @@ def plot(infile, x, y, c=None, yerr=None, figure=None, arrows=None, xlabel='', y
 
 
 ###########################################################
+# Main program where it calls all the functions
+###########################################################
 
 # Required files 
 
@@ -391,6 +428,8 @@ metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
 cubestat_contsub = glob.glob(main_dir + '/cubeStats*contsub.txt')[0]
 flagging_file = glob.glob('slurmOutput/flag.out.txt')[0]  # temporary file from Wasim
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
+fitsimage = (main_dir+'/image.restored.i.SB' + sbid + '.cube.contsub.fits')
+
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -445,12 +484,15 @@ n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec = get_Metadata(metafil
 chan_width, bw, cfreq = get_Metadata_freq(metafile_science)
 start_freq, end_freq = get_Frequency_Range(cubestat_contsub)
 theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
+hipass_cat = get_HIPASS(ra, dec)
+bmaj, bmin = get_FitsHeader(fitsimage)
 
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
 
 freq_range = str(start_freq)+'--'+str(end_freq)
 delta_freq_range = end_freq - start_freq
+
 
 ### Validation parameters
 
@@ -478,7 +520,6 @@ mad_rms, med_madfm = cal_mosaic_Stats(cubestat_contsub)
 bad_chans, QC_badchan_id = qc_Bad_Chans(cubestat_contsub, med_madfm)
 
 #bin_value = qc_RMS(cubestat_contsub, theoretical_rms_mjy)
-
 
 
 
@@ -723,8 +764,6 @@ html.write("""</td>
                                sizeX,
                                sizeY))
 
-### Finish HTML report with generated time stamp
-
 html.write("""</td> 
               </tr>
               </table>
@@ -745,7 +784,22 @@ html.write("""</td>
                                          QC_maxfden_id,
                                          QC_mad_maxfden))
 
-html.write("""</td>
+html.write("""</td> 
+              </tr>
+              </table>
+              <h2 align="middle">HIPASS sources within 6x6 sq degree</h2>
+              <table>
+              <tr align="middle">
+              <td id="cell">
+              <form>
+              <input type="button" value="Click here" onclick="window.location.href='{0}'" style="font-size:20px; width=50%; height=50%"</>
+              </form>
+              """.format(fig_dir+'/'+hipass_cat))
+
+### Finish HTML report with generated time stamp
+
+html.write("""
+              </td>
               </tr>
               </table>
                                              
