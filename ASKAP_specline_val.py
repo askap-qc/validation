@@ -1,16 +1,18 @@
 ################################################################################
 # This script generates an ASKAP spectral line cube HTML report. 
-# This version runs on the final continuum subtracted cube/mosaic. 
 #
 # Compatibility: Python version 3.x
 #
 # Required directories and files:
 #
 # -- metadata/mslist-scienceData*txt
+# -- metadata/mslist-*101.txt
 # -- slurmOutput/*sh
 # -- image.restored.i.SB<SBID>.cube.contsub.fits
 # -- diagnostics/cubestats-<field>/*txt
 # -- diagnostics/*png
+#
+# Output files: all saved in Figures directory.
 #
 # To run type:
 #
@@ -159,11 +161,14 @@ def get_Metadata(metafile):
     LINES = mslist_file.readlines()
     mslist_file.close()
 
+    nBlocks = 6  # these are the number of correlator cards (PILOT survey value)
+    
     obs_date = 'Observed from'
     code = 'Code'
     duration = 'Total elapsed time'
     antenna = 'antennas'
-
+    frame = 'Frame'
+    
     for i in range(len(LINES)):
         line = LINES[i]
         if line.find(antenna) >=0:
@@ -182,8 +187,12 @@ def get_Metadata(metafile):
             field = TOKS[5]
             ra = TOKS[6][:-5]
             dec = TOKS[7][:-4]
+        if line.find(frame) >= 0:
+            next_line = LINES[i+1]
+            TOKS = next_line.split()
+            total_obs_bw = float(TOKS[10])*nBlocks/1000.0 # kHz to MHz 
             
-    return n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec
+    return n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, total_obs_bw
 
 def get_Metadata_freq(metafile_science):
     """
@@ -202,11 +211,10 @@ def get_Metadata_freq(metafile_science):
             next_line = LINES[i+1]
             TOKS = next_line.split()
             chan_width = float(TOKS[10])*1000. # convert kHz to Hz
-            bw = TOKS[11]  #kHz
             cfreq = TOKS[12] #MHz
             nchan = TOKS[7]
 
-    return chan_width, bw, cfreq, nchan    
+    return chan_width, cfreq, nchan    
     
 
 def get_Frequency_Range(cubestat_contsub):
@@ -300,8 +308,22 @@ def qc_Bad_Chans (infile, med_madfm):
         QC_badchan_id = 'good'
     else:
         QC_badchan_id = 'bad'
-        
-    return BAD_CHAN, QC_badchan_id
+
+    mosaic_bad_chan = 'mosaic_badchans.txt'
+    print (','.join(BAD_CHAN), file=open(fig_dir + '/' + mosaic_bad_chan,'w'))
+
+    n_bad_chan = len(BAD_CHAN)
+
+    # Check if number of bad channel recorded is 1. If yes, check if is it a none keyword.
+    # If yes, number of bad channel should be 0.
+    
+    if n_bad_chan == 1:
+        with open(fig_dir + '/' + mosaic_bad_chan) as f:
+            if 'none' in f.read():
+                n_bad_chan = 0
+                print ('yes')
+    
+    return n_bad_chan, mosaic_bad_chan, QC_badchan_id
     
 
 def cal_Theoretical_RMS (n_ant, tobs, chan_width):
@@ -598,9 +620,9 @@ else:
     param = param_file[0]
 
 
-n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec = get_Metadata(metafile)
+n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, total_obs_bw = get_Metadata(metafile)
 askapsoft = get_Version(param)
-chan_width, bw, cfreq, nchan = get_Metadata_freq(metafile_science)
+chan_width, cfreq, nchan = get_Metadata_freq(metafile_science)
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
 
@@ -613,7 +635,7 @@ bmaj, bmin = get_FitsHeader(fitsimage)
 delta_freq_range = end_freq - start_freq
 flagged_stat = get_Flagging(flagging_file)
 mad_rms, med_madfm = cal_mosaic_Stats(cubestat_linmos_contsub)
-bad_chans, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, med_madfm)
+n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, med_madfm)
 hipass_cat = get_HIPASS(ra, dec)
 
     
@@ -669,7 +691,6 @@ thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_plot
 make_Thumbnail(beam_1pctile_histfig, thumb_img, sizeX, sizeY, fig_dir)
 
 beam_1pctile_QCfig, onepctile_QCplot = NoiseRank_QCplot(list_id_label, n)
-print (beam_1pctile_QCfig, onepctile_QCplot)
 thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot
 make_Thumbnail(beam_1pctile_QCfig, thumb_img, sizeX, sizeY, fig_dir)
 
@@ -735,8 +756,7 @@ html.write("""<h2 align="middle">Observation</h2>
                         <th>Field</th>
                         <th>R.A.</th>
                         <th>Decl.</th>
-                        <th>Total Bandwidth <br>(kHz)</th>
-                        <th>Central Frequency<br>(MHz)</th>
+                        <th>Total Bandwidth <br>(MHz)</th>
                     </tr>
                     <tr align="middle">
                         <td>{0}</td>
@@ -747,8 +767,7 @@ html.write("""<h2 align="middle">Observation</h2>
                         <td>{5}</td>
                         <td>{6}</td>
                         <td>{7}</td>
-                        <td>{8}</td>
-                        <td>{9}""".format(sbid,
+                        <td>{8}""".format(sbid,
                                           n_ant,
                                           start_obs_date,
                                           end_obs_date,
@@ -756,8 +775,8 @@ html.write("""<h2 align="middle">Observation</h2>
                                           field,
                                           ra,
                                           dec,
-                                          bw,
-                                          cfreq))
+                                          total_obs_bw))
+                                          
 
 html.write("""</td>
                     </tr>
@@ -767,6 +786,7 @@ html.write("""</td>
                     <tr>
                         <th>ASKAPsoft<br>version*</th>
                         <th>Frequency Range<br>(MHz)</th>
+                        <th>Central Frequency<br>(MHz)</th>
                         <th>Channel Width<br>(kHz)</th>
                         <th>Synthesised Beam bmaj<br>(arcsec)</th>
                         <th>Synthesised Beam bmin<br>(arcsec)</th>
@@ -776,8 +796,10 @@ html.write("""</td>
                         <td>{1}</td>
                         <td>{2}</td>
                         <td>{3}</td>
-                        <td>{4}""".format(askapsoft,
+                        <td>{4}</td>
+                        <td>{5}""".format(askapsoft,
                                           freq_range,
+                                          cfreq,
                                           chan_width_kHz,
                                           bmaj,
                                           bmin))
@@ -794,7 +816,7 @@ html.write("""</td>
                     <th>Total <br> Flagged Visibilities</th>
                     <th>MAD RMS <br> mJy/beam</th>
                     <th>Expected RMS <br> mJy/beam</th>
-                    <th>Bad Channel</th>
+                    <th>Number of Bad Channel</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -810,6 +832,9 @@ html.write("""</td>
                     <td>{13}</td>
                     <td>{14:.1f}</td>
                     <td id='{15}'>{16}
+                    <form action="{17}" method="get" target="_blank">
+                     <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
+                    </form>
                     """.format(cube_plots[0],
                                fig_dir+'/' + thumb_cubeplots[0],
                                sizeX,
@@ -826,7 +851,8 @@ html.write("""</td>
                                mad_rms,
                                theoretical_rms_mjy,
                                QC_badchan_id,
-                               bad_chans))
+                               n_bad_chan,
+                               fig_dir+'/' + mosaic_bad_chan))
 
 
 html.write("""</td>
@@ -842,28 +868,28 @@ html.write("""</td>
                     <tr align="middle">
                     <td>
                     <a href="{0}" target="_blank"><img src="{1}" width="{2}" height="{3}" alt="thumbnail"></a>
-                    <br><p>Min, Max, 1 percentile</br></p>
+                    <br><p>Min, Max, 1 percentile</p>
                     </td>
                     <td>
                     <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
-                    <br><p>Min, Max, 1 percentile</br></p>
+                    <br><p>Min, Max, 1 percentile</p>
                     </td>
                     <td>
                     <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
-                    <br><p>Min, Max, 1 percentile</br></p>
+                    <br><p>Min, Max, 1 percentile</p>
                     </td>
                     <tr align="middle">
                     <td>
                     <a href="{12}" target="_blank"><img src="{13}" width="{14}" height="{15}" alt="thumbnail"></a>
-                    <br><p>Stdev, MADFM</br></p>
+                    <br><p>Stdev, MADFM</p>
                     </td>
                     <td>
                     <a href="{16}" target="_blank"><img src="{17}" width="{18}" height="{19}" alt="thumbnail"></a>
-                    <br><p>Stdev, MADFM</br></p>
+                    <br><p>Stdev, MADFM</p>
                     </td>
                     <td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
-                    <br><p>Stdev, MADFM</br></p>
+                    <br><p>Stdev, MADFM</p>
                     """.format(beamMinMax_plots[1],
                                fig_dir+'/'+ thumb_beamMinMax[1],
                                sizeX,
@@ -900,16 +926,16 @@ html.write("""</td>
                     <tr align="middle">
                     <td>
                     <a href="{0}" target="_blank"><img src="{1}" width="{2}" height="{3}" alt="thumbnail"></a>
-                    <br><p>MAD Max Flux Density</br></p>
+                    <br><p>MAD Max Flux Density</p>
                     </td>
                     <td>
                     <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
-                    <br><p>Mean RMS</br></p>
+                    <br><p>Mean RMS</p>
                     </td>
                     <td>
                     <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
                     <a href="{12}" target="_blank"><img src="{13}" width="{14}" height="{15}" alt="thumbnail"></a>
-                    <br><p>1-percentile noise rank</br></p>
+                    <br><p>1-percentile noise rank</p>
                     """.format(fig_dir+'/'+'beamStat_MADMFD.png',
                                fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_MADMFD.png',
                                sizeX,
@@ -950,12 +976,12 @@ html.write("""</td>
 html.write("""</td> 
               </tr>
               </table>
-              <h2 align="middle">HIPASS sources within 6x6 sq degree</h2>
+              <h2 align="middle">HIPASS sources within 6x6 sq degree**</h2>
               <table>
               <tr align="middle">
               <td id="cell">
-              <form>
-              <input type="button" value="Click here" onclick="window.location.href='{0}'" style="font-size:20px; width=50%; height=50%"</>
+              <form action="{0}" method="get" target="_blank">
+                 <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
               </form>
               """.format(fig_dir+'/' + hipass_cat))
 
@@ -966,7 +992,9 @@ html.write("""
               </tr>
               </table>
                                              
-              <p align=left>* If more than one version of ASKAPsoft is used for the whole reduction, the latest one is reported.<br>
+              <p align=left>
+              * If more than one version of ASKAPsoft is used for the whole reduction, the latest one is reported.<br>
+              ** Does not take into account field rotation. <br>  
               Generated at {0} <br>
               <i> Report bugs to 
               <a href="mailto:biqing.for@icrar.org">Bi-Qing For</a></i>
@@ -974,10 +1002,6 @@ html.write("""
 
               </body>
               </html>""".format(str(datetime.now())))
-
-
-
-
 
 html.close()
 print ("Spectral line validation report written to '{0}'.".format(html_name))
