@@ -8,17 +8,19 @@
 #
 # -- metadata/mslist-scienceData*txt
 # -- slurmOutput/*sh
-# -- main_dir/image.restored.i.SB<SBID>.cube.contsub.fits
+# -- image.restored.i.SB<SBID>.cube.contsub.fits
+# -- diagnostics/cubestats-<field>/*txt
+# -- diagnostics/*png
 #
 # To run type:
 #
-# "python <script name> <main directory name> <SBID>
-# e.g. python ASKAP_specline_val.py Eridanus_processed 1234
+# "python <script name> <SBID>
+# e.g. python ASKAP_specline_val.py 8170
 #
 # Author: Bi-Qing For
 # Email: biqing.for@icrar.org
 # 
-# Modified Date: 27 August 2019
+# Modified Date: 4 Sept 2019
 #
 ################################################################################
 
@@ -31,29 +33,55 @@ from datetime import datetime
 import PIL 
 from PIL import Image
 from astropy.stats import median_absolute_deviation
-from astropy.utils.exceptions import AstropyWarning
 import warnings
+from astropy.utils.exceptions import AstropyWarning
+from scipy.optimize import OptimizeWarning
 import math
 from scipy.constants import k as k_B
 import subprocess 
 import matplotlib.pyplot as plt 
-from astroquery.vizier import Vizier
 import astropy.coordinates as coord
 import astropy.units as u
 from astropy.io.fits import getheader
+from scipy.stats import iqr
+import matplotlib.pylab as pylab
+from scipy.optimize import curve_fit
+from numpy import inf
+from scipy import asarray as ar,exp
+import matplotlib.patches as mpatches
 
 PI = math.pi
-
-#ignore annoying astropy warnings 
-warnings.simplefilter('ignore', category=AstropyWarning)
-
-fig_dir = 'Figures'
-main_dir = sys.argv[1]
-sbid = str(sys.argv[2])
 
 #################################################
 #       Functions for the main program
 #################################################
+
+def BeamPosition():
+    """
+    Defining 36 beam positions for plotting.
+    """
+    
+    XPOS, YPOS = [], []
+
+    x=0
+    for j in range(0,6,1):
+        x += 0.1
+        y=0
+        for k in range(0,6,1):
+            y += 0.2
+            XPOS.append(x)
+            YPOS.append(y)
+
+    return XPOS, YPOS
+
+def gauss(x, *p):
+    """ 
+    Fitting a Gaussian function.
+    """
+    A, mu, sigma = p
+
+    return A*exp(-(x-mu)**2/(2.*sigma**2))
+
 
 def get_FitsHeader(fitsimage):
     """
@@ -69,8 +97,9 @@ def get_HIPASS (ra, dec):
     """
     Getting the HIPASS sources (HICAT; Meyer et al. 2004) within the 6x6 sq deg field through VizieR. 
     """
+    from astroquery.vizier import Vizier
 
-    print ("Retrieving HIPASS sources from Vizier. Depending on connection, this might take a while....")
+    print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while....")
     
     Vizier.ROW_LIMIT = -1
     v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat')
@@ -175,8 +204,9 @@ def get_Metadata_freq(metafile_science):
             chan_width = float(TOKS[10])*1000. # convert kHz to Hz
             bw = TOKS[11]  #kHz
             cfreq = TOKS[12] #MHz
+            nchan = TOKS[7]
 
-    return chan_width, bw, cfreq    
+    return chan_width, bw, cfreq, nchan    
     
 
 def get_Frequency_Range(cubestat_contsub):
@@ -300,6 +330,132 @@ def cal_binnedAvg(dataArray, N):
     mean_bin[1:] = mean_bin[1:] - mean_bin[:-1]
     return mean_bin
 
+
+def qc_NoiseRank(spread):
+    """
+    Evaluating the 1-percentile noise rank distribution. Sigma of the Gaussian function is used as a metric. 
+    """
+
+    sigma = 0.5 # for a Gaussian
+    
+    if (spread <= 2.5*sigma):
+        qc_label = 'good'
+    elif (2.5*sigma < spread < 4*sigma):
+        qc_label = 'ok'
+    else:
+        qc_label = 'bad'
+
+    return qc_label
+
+def NoiseRank_histplot(nchan):
+    
+    ID_LABEL = []
+    plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
+    saved_fig = fig_dir + '/' + plot_name
+    file_dir = diagnostics_dir +'/cubestats-'+ field 
+    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field
+
+    params = {'axes.labelsize': 6,
+              'axes.titlesize':6,
+              'xtick.labelsize':5,
+              'ytick.labelsize':5,
+              'font.size':6}
+
+    pylab.rcParams.update(params)
+
+    fig, axs = plt.subplots(6,6)
+    fig.subplots_adjust(hspace = .004, wspace=.004, bottom=0.05)
+    fig.text(0.5, 0.007, '1-percentile noise level (mJy / beam)', ha='center')
+    fig.text(0.01, 0.5, 'log N', ha='center', rotation='vertical')
+
+    axs = axs.ravel()
+
+    for i in range(0,36):
+        infile = file_dir + basename +'.beam%02d.contsub.txt'%(i)
+        data = np.loadtxt(infile)
+        onepctile = data[:,6]
+        median_val = np.median(onepctile)
+        # if statement is needed to rule out really bad data without having to do the Gaussian fitting
+        if (median_val > 1000.0) or (median_val < -1000.0):
+            ID_LABEL.append('bad')
+            axs[i].set_xlim(-1, 1)
+            axs[i].set_ylim(0, 3)
+            axs[i].title.set_text('Beam%02d' %(i))
+        else:
+            upper_range = median_val + 3
+            lower_range = median_val - 3
+            x = onepctile[(onepctile < upper_range) & (onepctile > lower_range)]  # exclude outliers
+            xmax_val = np.max(x) 
+            xmin_val = np.min(x)
+
+            # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
+            bin_width = 2*iqr(x)*nchan**(-1/3) 
+            n_bins = int((xmax_val - xmin_val)/bin_width)
+    
+            hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
+            with np.errstate(divide='ignore'):  # ignore division of zero 
+                N = np.log10(hist)   # get log N for y-axis
+                N[N == -inf] = 0
+
+            xcenter = (bins[:-1] + bins[1:]) / 2
+            ymax_val = np.max(N)
+            median_val_x = np.median(x)
+            
+            # Fitting a Gaussian and use spread (sigma) as a metric
+            guess=[ymax_val, median_val_x, 5.0]
+            coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
+            spread = round(np.abs(coeff[2]), 1)
+            ID_LABEL.append(qc_NoiseRank(spread))
+    
+            axs[i].bar(xcenter, N)
+            axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
+            axs[i].set_xlim(xmin_val-3, xmax_val+3)
+            axs[i].set_ylim(0, ymax_val+3)
+            axs[i].title.set_text('Beam%02d' %(i))
+
+    plt.tight_layout()
+    plt.savefig(saved_fig)
+    plt.close()
+
+    return saved_fig, plot_name, ID_LABEL
+
+
+def NoiseRank_QCplot(list_id_label, n):
+
+
+    legend_dict = { 'good' : '#00FF00', 'ok' : '#FFD700', 'bad' : '#CD5C5C' }
+    patchList = []
+    XPOS, YPOS = BeamPosition()
+
+    plot_name = 'beam_1pctile_qc_SB' + sbid + '.png'
+    saved_fig = fig_dir + '/' + plot_name
+    
+    for i in range(36):
+        bnum = n[i]
+        if (list_id_label[bnum] =='good'):
+            color_code = '#00FF00'
+        elif (list_id_label[bnum] =='ok'): 
+            color_code = '#FFD700'
+        else:
+            color_code = '#CD5C5C'
+        
+        plt.scatter([XPOS[i]], [YPOS[i]], s=1500, color=color_code, edgecolors='black')
+        plt.text(XPOS[i], YPOS[i], n[i])
+
+    for key in legend_dict:
+        data_key = mpatches.Patch(color=legend_dict[key], label=key)
+        patchList.append(data_key)
+
+    plt.legend(handles=patchList)
+    plt.xlim(0,0.8)
+    plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    plt.title('1-percentile noise rank')
+    plt.savefig(saved_fig, bbox_inches='tight')
+    plt.close()
+
+    return saved_fig, plot_name
+
+
 """
 def qc_Max_Flux_Density (infile, delta_freq_range, mean_beamMADMFD):
 
@@ -343,13 +499,15 @@ def qc_RMS(infile, theoretical_rms_mjy):
 
 """
 
-def BeamStat_plot(infile, item):
+def BeamStat_plot(item, n):
     """
     Plotting and visualising statistics of 36 beams. 
     """
-
+    file_dir = diagnostics_dir +'/cubestats-'+ field 
+    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field  
+    
     if item == 'MADMFD':
-        vmin = 0.1   # This is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
+        vmin = 0.5   # This is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
         vmax = 1.0
         title = 'MAD Max Flux Density'
         plot_name = 'beamStat_MADMFD.png'
@@ -363,35 +521,21 @@ def BeamStat_plot(infile, item):
         plot_name = 'beamStat_AvgRMS.png'
         saved_fig = fig_dir+'/'+plot_name
     
-    n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16] # beam number
-
-    XPOS, YPOS = [], []
-
-    x=0
-    for j in range(0,6,1):
-        x += 0.1
-        y=0
-        for k in range(0,6,1):
-            y += 0.2
-            XPOS.append(x)
-            YPOS.append(y)
-
+    beamXPOS, beamYPOS = BeamPosition()
+    
     for i in range(36):
         bnum = n[i]
-        if bnum < 10:
-            infile = 'cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field + '.beam0' + str(bnum) +'.contsub.txt'
-        else:
-            infile = 'cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field + '.beam' + str(bnum) +'.contsub.txt'
-        if os.path.isfile(main_dir + '/' + field +'/'+infile):
+        infile = file_dir + basename +'.beam%02d.contsub.txt'%(bnum)
+        if os.path.isfile(infile):
             if item == 'MADMFD': 
-                beamstat = cal_beam_MADMFD(main_dir + '/' + field +'/'+infile)
+                beamstat = cal_beam_MADMFD(infile)
             if item == 'Avg_RMS':
-                beamstat = cal_beam_AvgRMS(main_dir + '/' + field +'/'+infile)
+                beamstat = cal_beam_AvgRMS(infile)
 #        else:
 #            beamstat = 0.5
 
-        plt.scatter([XPOS[i]], [YPOS[i]], s=1500, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
-        plt.text(XPOS[i], YPOS[i], n[i])
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i])
 
     plt.xlim(0,0.7)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
@@ -421,19 +565,31 @@ def plot(infile, x, y, c=None, yerr=None, figure=None, arrows=None, xlabel='', y
 # Main program where it calls all the functions
 ###########################################################
 
+#ignore astropy warnings 
+warnings.simplefilter('ignore', AstropyWarning)   
+
+fig_dir = 'Figures'
+sbid = str(sys.argv[1])
+n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16] # beam number
+html_name = 'spectral_report_SB' + sbid + '.html'
+diagnostics_dir = 'diagnostics'
+
+if not os.path.isdir(fig_dir):
+    os.system('mkdir '+ fig_dir)
+
+
 # Required files 
 
 metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
-cubestat_contsub = glob.glob(main_dir + '/cubeStats*contsub.txt')[0]
 flagging_file = glob.glob('slurmOutput/flag.out.txt')[0]  # temporary file from Wasim
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
-fitsimage = (main_dir+'/image.restored.i.SB' + sbid + '.cube.contsub.fits')
+fitsimage = ('image.restored.i.SB' + sbid + '.cube.contsub.fits')
 
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
-# More than one version is used. Reporting the latest version of ASKAPSoft for final data reduction. 
+# If more than one version is used. Reporting the latest version of ASKAPSoft for final data reduction. 
 
 if len(param_file) >=1:
     index = len(param_file)
@@ -442,86 +598,80 @@ else:
     param = param_file[0]
 
 
+n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec = get_Metadata(metafile)
+askapsoft = get_Version(param)
+chan_width, bw, cfreq, nchan = get_Metadata_freq(metafile_science)
+tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
+chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
+
+cubestat_linmos_contsub = glob.glob(diagnostics_dir+ '/cubestats-' + field + '/cubeStats*linmos.contsub.txt')[0] #mosaic contsub statistic
+
+start_freq, end_freq = get_Frequency_Range(cubestat_linmos_contsub)
+freq_range = str(start_freq)+'--'+str(end_freq)
+theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
+bmaj, bmin = get_FitsHeader(fitsimage)
+delta_freq_range = end_freq - start_freq
+flagged_stat = get_Flagging(flagging_file)
+mad_rms, med_madfm = cal_mosaic_Stats(cubestat_linmos_contsub)
+bad_chans, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, med_madfm)
+hipass_cat = get_HIPASS(ra, dec)
+
+    
 #############################    
 # HTML related tasks
 #############################
-
-html_name = 'spectral_report_SB' + sbid + '.html'
 
 ### Making thumbnail images
 
 sizeX = 70
 sizeY = 70
 
-cube_plots = glob.glob(main_dir + '/cubePlot*.png')
-beamNoise_plots = glob.glob(main_dir + '/beamNoise*.png')
-beamMinMax_plots = glob.glob(main_dir + '/beamMinMax*.png')
+cube_plots = glob.glob(diagnostics_dir + '/cubestats-' + field + '/*linmos*.png')  #Mosaic statistic
+beamNoise_plots = glob.glob(diagnostics_dir + '/beamNoise*.png') #beam-by-beam statistic
+beamMinMax_plots = glob.glob(diagnostics_dir +'/beamMinMax*.png') #beam-by-beam statistic
 
 thumb_cubeplots = []
 thumb_beamNoise = []
 thumb_beamMinMax = []
 
 for image in cube_plots:
-    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.partition('/')[2]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[2]
     thumb_cubeplots.append(thumb_img)
-    make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
+    make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
 for image in beamNoise_plots:
-    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.partition('/')[2]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[1]
     thumb_beamNoise.append(thumb_img)
-    make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
+    make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
 for image in beamMinMax_plots:
-    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.partition('/')[2]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[1]
     thumb_beamMinMax.append(thumb_img)
-    make_Thumbnail(image, thumb_img, sizeX, sizeY, main_dir)
+    make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
 
-# Calling the functions
-
-askapsoft = get_Version(param)
-n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec = get_Metadata(metafile)
-chan_width, bw, cfreq = get_Metadata_freq(metafile_science)
-start_freq, end_freq = get_Frequency_Range(cubestat_contsub)
-theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
-hipass_cat = get_HIPASS(ra, dec)
-bmaj, bmin = get_FitsHeader(fitsimage)
-
-tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
-chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
-
-freq_range = str(start_freq)+'--'+str(end_freq)
-delta_freq_range = end_freq - start_freq
-
-
-### Validation parameters
-
-flagged_stat = get_Flagging(flagging_file)
-
-beamstat_contsub = glob.glob(main_dir + '/' + field +'/cubeStats*beam??.contsub.txt')
-
-if not os.path.isdir(fig_dir):
-    os.system('mkdir '+ fig_dir)
-
-beam_MADMFD_fig, MADMFD_plot = BeamStat_plot(cubestat_contsub, 'MADMFD')
+beam_MADMFD_fig, MADMFD_plot = BeamStat_plot('MADMFD', n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
 make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
 
-beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot(cubestat_contsub, 'Avg_RMS')
+beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
 make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
 
-
 #QC_mad_maxfden, QC_maxfden_id = qc_Max_Flux_Density(cubestat_contsub, delta_freq_range) #Continuum subtracted
-QC_mad_maxfden = '2.0'
-QC_maxfden_id = 'good'
-
-mad_rms, med_madfm = cal_mosaic_Stats(cubestat_contsub)
-bad_chans, QC_badchan_id = qc_Bad_Chans(cubestat_contsub, med_madfm)
+#QC_mad_maxfden = '2.0'
+#QC_maxfden_id = 'good'
 
 #bin_value = qc_RMS(cubestat_contsub, theoretical_rms_mjy)
 
+beam_1pctile_histfig, onepctile_plot, list_id_label = NoiseRank_histplot(float(nchan))
+thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_plot
+make_Thumbnail(beam_1pctile_histfig, thumb_img, sizeX, sizeY, fig_dir)
 
+beam_1pctile_QCfig, onepctile_QCplot = NoiseRank_QCplot(list_id_label, n)
+print (beam_1pctile_QCfig, onepctile_QCplot)
+thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot
+make_Thumbnail(beam_1pctile_QCfig, thumb_img, sizeX, sizeY, fig_dir)
 
 ##############################
 # Creating html report
@@ -554,7 +704,7 @@ css_style = """<style>
                          background-color:#00FF00;
                   }
 
-                  #uncertain {
+                  #ok {
                          background-color:#FFD700;
                   }
                   #bad {
@@ -660,16 +810,16 @@ html.write("""</td>
                     <td>{13}</td>
                     <td>{14:.1f}</td>
                     <td id='{15}'>{16}
-                    """.format(cube_plots[1],
-                               main_dir+'/'+ thumb_cubeplots[1],
+                    """.format(cube_plots[0],
+                               fig_dir+'/' + thumb_cubeplots[0],
                                sizeX,
                                sizeY,
-                               cube_plots[0],
-                               main_dir+'/'+ thumb_cubeplots[0],
+                               cube_plots[1],
+                               fig_dir+'/'+ thumb_cubeplots[1],
                                sizeX,
                                sizeY,
                                cube_plots[2],
-                               main_dir+'/'+ thumb_cubeplots[2],
+                               fig_dir+'/'+ thumb_cubeplots[2],
                                sizeX,
                                sizeY,
                                flagged_stat,
@@ -715,27 +865,27 @@ html.write("""</td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                     <br><p>Stdev, MADFM</br></p>
                     """.format(beamMinMax_plots[1],
-                               main_dir+'/'+ thumb_beamMinMax[1],
+                               fig_dir+'/'+ thumb_beamMinMax[1],
                                sizeX,
                                sizeY,
                                beamMinMax_plots[0],
-                               main_dir+'/'+ thumb_beamMinMax[0],
+                               fig_dir+'/'+ thumb_beamMinMax[0],
                                sizeX,
                                sizeY,
                                beamMinMax_plots[2],
-                               main_dir+'/'+ thumb_beamMinMax[2],
+                               fig_dir+'/'+ thumb_beamMinMax[2],
                                sizeX,
                                sizeY,
                                beamNoise_plots[0],
-                               main_dir+'/'+ thumb_beamNoise[0],
+                               fig_dir+'/'+ thumb_beamNoise[0],
                                sizeX,
                                sizeY,
                                beamNoise_plots[1],
-                               main_dir+'/'+ thumb_beamNoise[1],
+                               fig_dir+'/'+ thumb_beamNoise[1],
                                sizeX,
                                sizeY,
                                beamNoise_plots[2],
-                               main_dir+'/'+ thumb_beamNoise[2],
+                               fig_dir+'/'+ thumb_beamNoise[2],
                                sizeX,
                                sizeY))
 
@@ -745,7 +895,7 @@ html.write("""</td>
                     </table>
                     <table width="100%" border="1">
                     <tr>
-                    <th colspan="2">Continuum Subtracted Beam Cube</th>
+                    <th colspan="3">Continuum Subtracted Beam Cube</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -755,6 +905,11 @@ html.write("""</td>
                     <td>
                     <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
                     <br><p>Mean RMS</br></p>
+                    </td>
+                    <td>
+                    <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
+                    <a href="{12}" target="_blank"><img src="{13}" width="{14}" height="{15}" alt="thumbnail"></a>
+                    <br><p>1-percentile noise rank</br></p>
                     """.format(fig_dir+'/'+'beamStat_MADMFD.png',
                                fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_MADMFD.png',
                                sizeX,
@@ -762,27 +917,35 @@ html.write("""</td>
                                fig_dir+'/'+'beamStat_AvgRMS.png',
                                fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_AvgRMS.png',
                                sizeX,
+                               sizeY,
+                               beam_1pctile_histfig,
+                               fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + onepctile_plot,
+                               sizeX,
+                               sizeY,
+                               beam_1pctile_QCfig, 
+                               fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + onepctile_QCplot,
+                               sizeX,
                                sizeY))
 
-html.write("""</td> 
-              </tr>
-              </table>
-              <h2 align="middle">Validation Metrics</h2>
-              <table width="100%" border="1">
-              <tr>
-              <th>MAD Max Flux Density <br>(mJy/beam)</th>
-              <th>item</th>
-              <th>item</th>   
-              </tr>
-              <tr align="middle">
-              <td id='{0}'>{1}</td>
-              <td id='{2}'>{3}</td>
-              <td id='{4}'>{5}""".format(QC_maxfden_id,
-                                         QC_mad_maxfden,
-                                         QC_maxfden_id,
-                                         QC_mad_maxfden,
-                                         QC_maxfden_id,
-                                         QC_mad_maxfden))
+###html.write("""</td> 
+###              </tr>
+###              </table>
+###              <h2 align="middle">Validation Metrics</h2>
+###              <table width="100%" border="1">
+###              <tr>
+###              <th>MAD Max Flux Density <br>(mJy/beam)</th>
+###              <th>item</th>
+###              <th>item</th>   
+###              </tr>
+###              <tr align="middle">
+###              <td id='{0}'>{1}</td>
+###              <td id='{2}'>{3}</td>
+###              <td id='{4}'>{5}""".format(QC_maxfden_id,
+###                                         QC_mad_maxfden,
+###                                         QC_maxfden_id,
+###                                         QC_mad_maxfden,
+###                                         QC_maxfden_id,
+###                                         QC_mad_maxfden))
 
 html.write("""</td> 
               </tr>
@@ -794,7 +957,7 @@ html.write("""</td>
               <form>
               <input type="button" value="Click here" onclick="window.location.href='{0}'" style="font-size:20px; width=50%; height=50%"</>
               </form>
-              """.format(fig_dir+'/'+hipass_cat))
+              """.format(fig_dir+'/' + hipass_cat))
 
 ### Finish HTML report with generated time stamp
 
