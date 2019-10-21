@@ -11,6 +11,7 @@
 # -- image.restored.i.SB<SBID>.cube.contsub.fits
 # -- diagnostics/cubestats-<field>/*txt
 # -- diagnostics/*png
+# -- flaggSummary/*SL.ms.flagSummary
 #
 # Output files: all saved in Figures directory.
 #
@@ -22,7 +23,7 @@
 # Author: Bi-Qing For
 # Email: biqing.for@icrar.org
 # 
-# Modified Date: 4 Sept 2019
+# Modified Date: 16 October 2019
 #
 ################################################################################
 
@@ -147,11 +148,33 @@ def get_Flagging (flagging_file):
     line = subprocess.check_output(['tail', '-1', flagging_file]) #Grab the last line
     str_line = line.decode('utf-8')
     TOKS = str_line.split()
-    flagged_stat = TOKS[-1]
+    total_flagged_pct = float(TOKS[-2]) #data+autocorrelation
+    total_uv = float(TOKS[7])
 
-    return flagged_stat
+    flag_infile = open(flagging_file, 'r')
+    LINES = flag_infile.readlines()[:6]
+    flag_infile.close()
 
+    N_Rec = 'nRec'
+    N_Chan = 'nChan'
+
+    # Search for keywords in the file
     
+    for i in range(len(LINES)):
+        line = LINES[i]
+        if line.find(N_Rec) >=0:
+            TOKS = line.split()
+            n_Rec = float(TOKS[2])
+        if line.find(N_Chan) >=0:
+            TOKS = line.split()
+            n_Chan = float(TOKS[2])
+
+    autocorr_flagged_pct = (36 * n_Rec * n_Chan / total_uv)*100.0
+    data_flagged_pct = round(total_flagged_pct - autocorr_flagged_pct, 2)
+
+    return data_flagged_pct
+
+
 def get_Metadata(metafile):
     """
     Getting basic information on observed field (one field only). 
@@ -283,6 +306,7 @@ def cal_mosaic_Stats (infile):
 
     return mad_rms, med_madfm
 
+
 def qc_Bad_Chans (infile, med_madfm):
     """
     Checking for bad channels in the mosaic cube.
@@ -352,6 +376,123 @@ def cal_binnedAvg(dataArray, N):
     mean_bin[1:] = mean_bin[1:] - mean_bin[:-1]
     return mean_bin
 
+
+def qc_BeamLogs():
+    """
+    Evaluating each channel of each beam if ASKAPSoft fails to synthesize the beam, bmaj and bmin to 30 arcsec. 
+    Bmaj and bmin for the first few channels are always zero. 
+    """
+    
+    file_dir = 'SpectralCube_BeamLogs'
+    basename = '/beamlog.image.restored.i.SB'+ sbid + '.cube.'+ field
+    QC_BEAMS_LABEL = []
+    
+    for i in range(0,36):
+        infile = file_dir + basename +'.beam%02d.txt'%(i)
+        beamlog_file = open(infile, 'r')
+        LINES = beamlog_file.readlines()[1:]
+        beamlog_file.close()
+        
+        for j in range(len(LINES)):
+            line = LINES[j]
+            TOKS = line.split()
+            bmaj = TOKS[1]
+            bmin = TOKS[2]
+            if (bmaj != '0' and bmaj != '30'):
+                qc_BMAJ_label = 'fail'
+                break        
+            else:
+                qc_BMAJ_label = 'pass'
+
+            if (bmin != '0' and bmin != '30'):
+                qc_BMIN_label = 'fail'
+                break        
+            else:
+                qc_BMIN_label = 'pass'
+  
+        if (qc_BMAJ_label == 'fail') or (qc_BMIN_label == 'fail'):
+            QC_BEAMS_LABEL.append('fail')
+        else:
+            QC_BEAMS_LABEL.append('pass')
+
+    return QC_BEAMS_LABEL
+
+
+def FlagStat_plot(flagstat, n):
+    """
+    Plotting and visualising flagging statistics of 36 beams. 
+    """
+
+    file_dir = diagnostics_dir +'/cubestats-'+ field 
+    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field  
+    
+    title = 'Flagged Fraction'
+    plot_name = 'FlagStat.png'
+    saved_fig = fig_dir+'/'+plot_name
+
+    params = {'axes.labelsize': 10,
+              'axes.titlesize': 10,
+              'font.size':10}
+
+    pylab.rcParams.update(params)
+
+    beamXPOS, beamYPOS = BeamPosition()
+    
+    for i in range(36):
+        bnum = n[i]
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[flagstat[bnum]], cmap='tab20c', edgecolors='black',vmin=0, vmax=100)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i])
+
+    plt.xlim(0,0.7)
+    plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    plt.title(title)
+    cb = plt.colorbar()
+    cb.set_label('Percentage')
+    cb.ax.tick_params(labelsize=10)
+
+    plt.savefig(saved_fig)
+    plt.close()
+
+    return saved_fig, plot_name
+
+
+def BeamLogs_QCplot(list_beams_id_label, n):
+
+    params = {'axes.labelsize': 10,
+              'axes.titlesize':10,
+              'font.size':10}
+
+    pylab.rcParams.update(params)
+    
+    legend_dict = { 'pass' : '#00FF00', 'fail' : '#CD5C5C' }
+    patchList = []
+    XPOS, YPOS = BeamPosition()
+
+    plot_name = 'beamlogs_qc_SB' + sbid + '.png'
+    saved_fig = fig_dir + '/' + plot_name
+    
+    for i in range(36):
+        bnum = n[i]
+        if (list_beams_id_label[bnum] =='pass'):
+            color_code = '#00FF00'
+        else:
+            color_code = '#CD5C5C'
+        
+        plt.scatter([XPOS[i]], [YPOS[i]], s=1500, color=color_code, edgecolors='black')
+        plt.text(XPOS[i], YPOS[i], n[i])
+
+    for key in legend_dict:
+        data_key = mpatches.Patch(color=legend_dict[key], label=key)
+        patchList.append(data_key)
+
+    plt.legend(handles=patchList)
+    plt.xlim(0,0.8)
+    plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    plt.title('Beam Log')
+    plt.savefig(saved_fig, bbox_inches='tight')
+    plt.close()
+
+    return saved_fig, plot_name
 
 def qc_NoiseRank(spread):
     """
@@ -444,7 +585,12 @@ def NoiseRank_histplot(nchan):
 
 def NoiseRank_QCplot(list_id_label, n):
 
+    params = {'axes.labelsize': 10,
+              'axes.titlesize':10,
+              'font.size':10}
 
+    pylab.rcParams.update(params)
+    
     legend_dict = { 'good' : '#00FF00', 'ok' : '#FFD700', 'bad' : '#CD5C5C' }
     patchList = []
     XPOS, YPOS = BeamPosition()
@@ -527,7 +673,13 @@ def BeamStat_plot(item, n):
     """
     file_dir = diagnostics_dir +'/cubestats-'+ field 
     basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field  
-    
+
+    params = {'axes.labelsize': 10,
+              'axes.titlesize':10,
+              'font.size':10}
+
+    pylab.rcParams.update(params)
+
     if item == 'MADMFD':
         vmin = 0.5   # This is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
         vmax = 1.0
@@ -599,15 +751,12 @@ diagnostics_dir = 'diagnostics'
 if not os.path.isdir(fig_dir):
     os.system('mkdir '+ fig_dir)
 
-
 # Required files 
 
 metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
-flagging_file = glob.glob('slurmOutput/flag.out.txt')[0]  # temporary file from Wasim
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
 fitsimage = ('image.restored.i.SB' + sbid + '.cube.contsub.fits')
-
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -630,14 +779,30 @@ cubestat_linmos_contsub = glob.glob(diagnostics_dir+ '/cubestats-' + field + '/c
 
 start_freq, end_freq = get_Frequency_Range(cubestat_linmos_contsub)
 freq_range = str(start_freq)+'--'+str(end_freq)
-theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
 bmaj, bmin = get_FitsHeader(fitsimage)
 delta_freq_range = end_freq - start_freq
-flagged_stat = get_Flagging(flagging_file)
+theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
 mad_rms, med_madfm = cal_mosaic_Stats(cubestat_linmos_contsub)
 n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, med_madfm)
 hipass_cat = get_HIPASS(ra, dec)
 
+
+# Check if flagging statistic file is available. Earlier ASKAPSoft run did not include the file.
+
+flagging_file = sorted(glob.glob('flagSummary/*SL.ms.flagSummary')) #Flagging statistic for spectral line
+
+FLAG_STAT = []
+
+for ffile in flagging_file:
+    flag_stat = get_Flagging(ffile)
+    FLAG_STAT.append(flag_stat)
+
+
+#if not os.path.isfile(flagging_file):
+#    flagged_stat = 'N/A'
+#else:
+#    flagged_stat = get_Flagging(flagging_file)
+    
     
 #############################    
 # HTML related tasks
@@ -693,6 +858,16 @@ make_Thumbnail(beam_1pctile_histfig, thumb_img, sizeX, sizeY, fig_dir)
 beam_1pctile_QCfig, onepctile_QCplot = NoiseRank_QCplot(list_id_label, n)
 thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot
 make_Thumbnail(beam_1pctile_QCfig, thumb_img, sizeX, sizeY, fig_dir)
+
+list_beams_id_label = qc_BeamLogs()
+BeamLogs_QCfig, BeamLogs_QCplot = BeamLogs_QCplot(list_beams_id_label, n)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ BeamLogs_QCplot
+make_Thumbnail(BeamLogs_QCfig, thumb_img, sizeX, sizeY, fig_dir)
+
+Flagged_fig, Flagged_plot = FlagStat_plot(FLAG_STAT, n)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ Flagged_plot
+make_Thumbnail(Flagged_fig, thumb_img, sizeX, sizeY, fig_dir)
+
 
 ##############################
 # Creating html report
@@ -788,71 +963,36 @@ html.write("""</td>
                         <th>Frequency Range<br>(MHz)</th>
                         <th>Central Frequency<br>(MHz)</th>
                         <th>Channel Width<br>(kHz)</th>
-                        <th>Synthesised Beam bmaj<br>(arcsec)</th>
-                        <th>Synthesised Beam bmin<br>(arcsec)</th>
+                        <th>Synthesised Beam<br>(arcsec x arcsec)</th>
+                        <th>Beam Logs</th>
+                        <th>Flagged Visibilities</th>
                     </tr>
                     <tr align="middle">
                         <td>{0}</td>
                         <td>{1}</td>
                         <td>{2}</td>
                         <td>{3}</td>
-                        <td>{4}</td>
-                        <td>{5}""".format(askapsoft,
-                                          freq_range,
-                                          cfreq,
-                                          chan_width_kHz,
-                                          bmaj,
-                                          bmin))
+                        <td>{4}x{5}</td>
+                        <td>
+                        <a href="{6}" target="_blank"><img src="{7}" width="{8}" height="{9}" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="{10}" target="_blank"><img src="{11}" width="{12}" height="{13}" alt="thumbnail"></a>
+                        """.format(askapsoft,
+                                   freq_range,
+                                   cfreq,
+                                   chan_width_kHz,
+                                   bmaj,
+                                   bmin,
+                                   BeamLogs_QCfig, 
+                                   fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot,
+                                   sizeX,
+                                   sizeY,
+                                   Flagged_fig, 
+                                   fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + Flagged_plot,
+                                   sizeX,
+                                   sizeY))
 
-html.write("""</td>
-                    </tr>
-                    </table>
-                    <h2 align="middle">Mosaic Statistics</h2>
-                    <table width="100%" border="1">
-                    <tr>
-                    <th>Image Cube</th>          
-                    <th>Continuum Subtracted Cube</th>
-                    <th>Residual Cube</th>
-                    <th>Total <br> Flagged Visibilities</th>
-                    <th>MAD RMS <br> mJy/beam</th>
-                    <th>Expected RMS <br> mJy/beam</th>
-                    <th>Number of Bad Channel</th>
-                    </tr>
-                    <tr align="middle">
-                    <td>
-                    <a href="{0}" target="_blank"><img src="{1}" width="{2}" height="{3}" alt="thumbnail"></a>
-                    </td>
-                    <td>
-                    <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
-                    </td>
-                    <td>
-                    <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
-                    </td>
-                    <td>{12}</td>
-                    <td>{13}</td>
-                    <td>{14:.1f}</td>
-                    <td id='{15}'>{16}
-                    <form action="{17}" method="get" target="_blank">
-                     <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
-                    </form>
-                    """.format(cube_plots[0],
-                               fig_dir+'/' + thumb_cubeplots[0],
-                               sizeX,
-                               sizeY,
-                               cube_plots[1],
-                               fig_dir+'/'+ thumb_cubeplots[1],
-                               sizeX,
-                               sizeY,
-                               cube_plots[2],
-                               fig_dir+'/'+ thumb_cubeplots[2],
-                               sizeX,
-                               sizeY,
-                               flagged_stat,
-                               mad_rms,
-                               theoretical_rms_mjy,
-                               QC_badchan_id,
-                               n_bad_chan,
-                               fig_dir+'/' + mosaic_bad_chan))
 
 
 html.write("""</td>
@@ -921,7 +1061,7 @@ html.write("""</td>
                     </table>
                     <table width="100%" border="1">
                     <tr>
-                    <th colspan="3">Continuum Subtracted Beam Cube</th>
+                    <th colspan="4">Continuum Subtracted Beam Cube</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -953,25 +1093,49 @@ html.write("""</td>
                                sizeX,
                                sizeY))
 
-###html.write("""</td> 
-###              </tr>
-###              </table>
-###              <h2 align="middle">Validation Metrics</h2>
-###              <table width="100%" border="1">
-###              <tr>
-###              <th>MAD Max Flux Density <br>(mJy/beam)</th>
-###              <th>item</th>
-###              <th>item</th>   
-###              </tr>
-###              <tr align="middle">
-###              <td id='{0}'>{1}</td>
-###              <td id='{2}'>{3}</td>
-###              <td id='{4}'>{5}""".format(QC_maxfden_id,
-###                                         QC_mad_maxfden,
-###                                         QC_maxfden_id,
-###                                         QC_mad_maxfden,
-###                                         QC_maxfden_id,
-###                                         QC_mad_maxfden))
+html.write("""</td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Mosaic Statistics</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Image Cube</th>          
+                    <th>Continuum Subtracted Cube</th>
+                    <th>Residual Cube</th>
+                    <th>Expected RMS <br> mJy/beam</th>
+                    <th>Number of Bad Channel</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="{0}" target="_blank"><img src="{1}" width="{2}" height="{3}" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
+                    </td>
+                    <td>{12:.1f}</td>
+                    <td id='{13}'>{14}
+                    <form action="{15}" method="get" target="_blank">
+                     <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
+                    </form>
+                    """.format(cube_plots[0],
+                               fig_dir+'/' + thumb_cubeplots[0],
+                               sizeX,
+                               sizeY,
+                               cube_plots[1],
+                               fig_dir+'/'+ thumb_cubeplots[1],
+                               sizeX,
+                               sizeY,
+                               cube_plots[2],
+                               fig_dir+'/'+ thumb_cubeplots[2],
+                               sizeX,
+                               sizeY,
+                               theoretical_rms_mjy,
+                               QC_badchan_id,
+                               n_bad_chan,
+                               fig_dir+'/' + mosaic_bad_chan))
 
 html.write("""</td> 
               </tr>
