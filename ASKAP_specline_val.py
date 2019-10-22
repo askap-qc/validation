@@ -23,7 +23,7 @@
 # Author: Bi-Qing For
 # Email: biqing.for@icrar.org
 # 
-# Modified Date: 16 October 2019
+# Modified Date: 21 October 2019
 #
 ################################################################################
 
@@ -96,7 +96,7 @@ def get_FitsHeader(fitsimage):
 
     return bmaj, bmin
 
-def get_HIPASS (ra, dec):
+def get_HIPASS(ra, dec):
     """
     Getting the HIPASS sources (HICAT; Meyer et al. 2004) within the 6x6 sq deg field through VizieR. 
     """
@@ -126,7 +126,7 @@ def get_HIPASS (ra, dec):
     return hipass_cat
 
     
-def get_Version (param):
+def get_Version(param):
     """
     Getting the latest ASKAPsoft version used for the data reduction.
     """
@@ -140,7 +140,7 @@ def get_Version (param):
     return askapsoft
         
 
-def get_Flagging (flagging_file):
+def get_Flagging(flagging_file):
     """
     Getting flagging statistics.
     """
@@ -293,7 +293,7 @@ def cal_beam_AvgRMS(infile):
     return avg_rms
     
 
-def cal_mosaic_Stats (infile):
+def cal_mosaic_Stats(infile):
     """
     Calculating MAD RMS and mean MADFM for the mosaic cube. 
     """
@@ -350,7 +350,7 @@ def qc_Bad_Chans (infile, med_madfm):
     return n_bad_chan, mosaic_bad_chan, QC_badchan_id
     
 
-def cal_Theoretical_RMS (n_ant, tobs, chan_width):
+def cal_Theoretical_RMS(n_ant, tobs, chan_width):
     """
     Calculating the theoretical rms noise for ASKAP. Assuming natural weighting and not taking into account fraction of flagged data. 
     """
@@ -366,6 +366,22 @@ def cal_Theoretical_RMS (n_ant, tobs, chan_width):
     rms_jy = SEFD/(coreff*math.sqrt(npol*n_ant*(n_ant-1)*chan_width*tobs))
 
     return rms_jy
+
+
+def cal_Beam_ExpRMS(FLAGSTAT, n, t_rms):
+    """
+    Calculating the theoretical RMS of individual beam by taking into account the flagged percentage. 
+    Assuming same weighting for the non-flagged data. 
+    """
+
+    BEAM_EXP_RMS = []
+
+    for stat in FLAGSTAT:
+        beam_Exp_RMS = 1/math.sqrt(float(1-stat/100)) * t_rms   # 1/sqrt(non-flagged fraction) * theoretical rms in mJy
+        BEAM_EXP_RMS.append(beam_Exp_RMS)
+
+    return BEAM_EXP_RMS
+
 
 def cal_binnedAvg(dataArray, N):
     """
@@ -418,7 +434,7 @@ def qc_BeamLogs():
     return QC_BEAMS_LABEL
 
 
-def FlagStat_plot(flagstat, n):
+def FlagStat_plot(FLAGSTAT, n):
     """
     Plotting and visualising flagging statistics of 36 beams. 
     """
@@ -440,7 +456,7 @@ def FlagStat_plot(flagstat, n):
     
     for i in range(36):
         bnum = n[i]
-        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[flagstat[bnum]], cmap='tab20c', edgecolors='black',vmin=0, vmax=100)
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[FLAGSTAT[bnum]], cmap='tab20c', edgecolors='black',vmin=0, vmax=100)
         plt.text(beamXPOS[i], beamYPOS[i], n[i])
 
     plt.xlim(0,0.7)
@@ -448,6 +464,43 @@ def FlagStat_plot(flagstat, n):
     plt.title(title)
     cb = plt.colorbar()
     cb.set_label('Percentage')
+    cb.ax.tick_params(labelsize=10)
+
+    plt.savefig(saved_fig)
+    plt.close()
+
+    return saved_fig, plot_name
+
+
+def Beam_ExpRMSplot(BEAM_EXPRMS, n):
+    """
+    Plotting and visualising expected RMS of 36 beams. 
+    """
+
+    title = 'Expected RMS'
+    plot_name = 'Exp_RMS.png'
+    saved_fig = fig_dir+'/'+plot_name
+
+    params = {'axes.labelsize': 10,
+              'axes.titlesize': 10,
+              'font.size':10}
+
+    pylab.rcParams.update(params)
+
+    beamXPOS, beamYPOS = BeamPosition()
+    VMIN = round(np.min(BEAM_EXPRMS), 1)
+    VMAX = round(np.max(BEAM_EXPRMS), 1)
+    
+    for i in range(36):
+        bnum = n[i]
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[BEAM_EXPRMS[bnum]], cmap='GnBu', edgecolors='black', vmin=VMIN, vmax=VMAX)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i])
+
+    plt.xlim(0,0.7)
+    plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    plt.title(title)
+    cb = plt.colorbar()
+    cb.set_label('mJy / beam')
     cb.ax.tick_params(labelsize=10)
 
     plt.savefig(saved_fig)
@@ -786,7 +839,6 @@ mad_rms, med_madfm = cal_mosaic_Stats(cubestat_linmos_contsub)
 n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, med_madfm)
 hipass_cat = get_HIPASS(ra, dec)
 
-
 # Check if flagging statistic file is available. Earlier ASKAPSoft run did not include the file.
 
 flagging_file = sorted(glob.glob('flagSummary/*SL.ms.flagSummary')) #Flagging statistic for spectral line
@@ -797,6 +849,7 @@ for ffile in flagging_file:
     flag_stat = get_Flagging(ffile)
     FLAG_STAT.append(flag_stat)
 
+BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, n, theoretical_rms_mjy)
 
 #if not os.path.isfile(flagging_file):
 #    flagged_stat = 'N/A'
@@ -841,9 +894,15 @@ beam_MADMFD_fig, MADMFD_plot = BeamStat_plot('MADMFD', n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
 make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
 
-beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
-thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
-make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
+# mean RMS of each beam and compares it to theoretical RMS (not taking into account flagging)
+#beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
+#thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
+#make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
+
+beamExpRMS_fig, beamExpRMS_plot = Beam_ExpRMSplot(BEAM_EXP_RMS, n)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ beamExpRMS_plot
+make_Thumbnail(beamExpRMS_fig, thumb_img, sizeX, sizeY, fig_dir)
+
 
 #QC_mad_maxfden, QC_maxfden_id = qc_Max_Flux_Density(cubestat_contsub, delta_freq_range) #Continuum subtracted
 #QC_mad_maxfden = '2.0'
@@ -867,6 +926,7 @@ make_Thumbnail(BeamLogs_QCfig, thumb_img, sizeX, sizeY, fig_dir)
 Flagged_fig, Flagged_plot = FlagStat_plot(FLAG_STAT, n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ Flagged_plot
 make_Thumbnail(Flagged_fig, thumb_img, sizeX, sizeY, fig_dir)
+
 
 
 ##############################
@@ -966,6 +1026,7 @@ html.write("""</td>
                         <th>Synthesised Beam<br>(arcsec x arcsec)</th>
                         <th>Beam Logs</th>
                         <th>Flagged Visibilities</th>
+                        <th>Expected RMS</th>
                     </tr>
                     <tr align="middle">
                         <td>{0}</td>
@@ -978,6 +1039,9 @@ html.write("""</td>
                         </td>
                         <td>
                         <a href="{10}" target="_blank"><img src="{11}" width="{12}" height="{13}" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="{14}" target="_blank"><img src="{15}" width="{12}" height="{16}" alt="thumbnail"></a>
                         """.format(askapsoft,
                                    freq_range,
                                    cfreq,
@@ -990,6 +1054,10 @@ html.write("""</td>
                                    sizeY,
                                    Flagged_fig, 
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + Flagged_plot,
+                                   sizeX,
+                                   sizeY,
+                                   beamExpRMS_fig, 
+                                   fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + beamExpRMS_plot,
                                    sizeX,
                                    sizeY))
 
@@ -1070,18 +1138,10 @@ html.write("""</td>
                     </td>
                     <td>
                     <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
-                    <br><p>Mean RMS</p>
-                    </td>
-                    <td>
                     <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
-                    <a href="{12}" target="_blank"><img src="{13}" width="{14}" height="{15}" alt="thumbnail"></a>
                     <br><p>1-percentile noise rank</p>
                     """.format(fig_dir+'/'+'beamStat_MADMFD.png',
                                fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_MADMFD.png',
-                               sizeX,
-                               sizeY,
-                               fig_dir+'/'+'beamStat_AvgRMS.png',
-                               fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_AvgRMS.png',
                                sizeX,
                                sizeY,
                                beam_1pctile_histfig,
@@ -1102,7 +1162,6 @@ html.write("""</td>
                     <th>Image Cube</th>          
                     <th>Continuum Subtracted Cube</th>
                     <th>Residual Cube</th>
-                    <th>Expected RMS <br> mJy/beam</th>
                     <th>Number of Bad Channel</th>
                     </tr>
                     <tr align="middle">
@@ -1115,9 +1174,8 @@ html.write("""</td>
                     <td>
                     <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
                     </td>
-                    <td>{12:.1f}</td>
-                    <td id='{13}'>{14}
-                    <form action="{15}" method="get" target="_blank">
+                    <td id='{12}'>{13}
+                    <form action="{14}" method="get" target="_blank">
                      <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
                     </form>
                     """.format(cube_plots[0],
@@ -1132,8 +1190,7 @@ html.write("""</td>
                                fig_dir+'/'+ thumb_cubeplots[2],
                                sizeX,
                                sizeY,
-                               theoretical_rms_mjy,
-                               QC_badchan_id,
+                                QC_badchan_id,
                                n_bad_chan,
                                fig_dir+'/' + mosaic_bad_chan))
 
