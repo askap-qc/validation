@@ -1,11 +1,12 @@
 ################################################################################
-# This script generates an ASKAP spectral line cube HTML report. 
+# This script generates an ASKAP WALLABY spectral line cube HTML report. 
 #
 # Compatibility: Python version 3.x
 #
 # Required directories and files:
 #
 # -- metadata/mslist-scienceData*txt
+# -- metadata/mslist-cal*txt
 # -- metadata/mslist-*101.txt
 # -- slurmOutput/*sh
 # -- image.restored.i.SB<SBID>.cube.contsub.fits
@@ -17,14 +18,13 @@
 #
 # To run type:
 #
-# "python <script name> <SBID>
+# python <script name> <SBID>
 # e.g. python ASKAP_specline_val.py 8170
 #
 # Author: Bi-Qing For
 # Email: biqing.for@icrar.org
 # 
-# Modified Date: 21 October 2019
-#
+# Modified Date: 10 February 2020
 ################################################################################
 
 import os.path
@@ -52,6 +52,7 @@ from scipy.optimize import curve_fit
 from numpy import inf
 from scipy import asarray as ar,exp
 import matplotlib.patches as mpatches
+from astroquery.vizier import Vizier
 
 PI = math.pi
 
@@ -100,7 +101,6 @@ def get_HIPASS(ra, dec):
     """
     Getting the HIPASS sources (HICAT; Meyer et al. 2004) within the 6x6 sq deg field through VizieR. 
     """
-    from astroquery.vizier import Vizier
 
     print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while....")
     
@@ -128,7 +128,7 @@ def get_HIPASS(ra, dec):
     
 def get_Version(param):
     """
-    Getting the latest ASKAPsoft version used for the data reduction.
+    Getting the latest ASKAPsoft version that is used for the data reduction.
     """
 
     line = subprocess.check_output(['tail', '-5', param]) # Grab the last 5 lines
@@ -295,21 +295,23 @@ def cal_beam_AvgRMS(infile):
 
 def cal_mosaic_Stats(infile):
     """
-    Calculating MAD RMS and mean MADFM for the mosaic cube. 
+    Calculating MAD RMS and median RMS for the mosaic cube   ###median MADFM for the mosaic cube. 
     """
 
     data = np.loadtxt(infile)
-    rms, madfm = data[:,3], data[:,5]
+#    rms, madfm = data[:,3], data[:,5]
+    rms = data[:,3]
     
-    med_madfm = np.median(madfm)
+#    med_madfm = np.median(madfm)
+    med_rms = np.median(rms)
     mad_rms = round(median_absolute_deviation(rms), 2)
 
-    return mad_rms, med_madfm
+    return mad_rms, med_rms
 
 
-def qc_Bad_Chans (infile, med_madfm):
+def qc_Bad_Chans (infile, mad_rms, med_rms):
     """
-    Checking for bad channels in the mosaic cube.
+    Checking for bad channels in the mosaic cube. 
     """
 
     BAD_CHAN = []
@@ -317,14 +319,22 @@ def qc_Bad_Chans (infile, med_madfm):
     stat_file = open(infile, 'r')
     LINES = stat_file.readlines()[2:]
     stat_file.close()
-    value = med_madfm + 0.4  # Deviation from the med_madfm. Need to check with larger sample of data to decide the best value. 
+
+    threshold = 1.2  # value selected to be more consistent with SoFiA flagged criterion
+    
+#    value = med_madfm + 0.4  # Deviation from the med_madfm. Need to check with larger sample of data to decide the best value. 
 
     for i in range(len(LINES)):
         line = LINES[i]
         TOKS = line.split()
         chan = TOKS[0]
-        madfm = float(TOKS[5])
-        if madfm > value:
+ #       madfm = float(TOKS[5])
+        rms = float(TOKS[3])
+        
+#        if madfm > value:
+        value = abs(rms - med_rms)
+        criterion = 1.4826*threshold*mad_rms
+        if value > criterion:
             BAD_CHAN.append(chan)
 
     if BAD_CHAN == []:
@@ -395,7 +405,7 @@ def cal_binnedAvg(dataArray, N):
 
 def qc_BeamLogs():
     """
-    Evaluating each channel of each beam if ASKAPSoft fails to synthesize the beam, bmaj and bmin to 30 arcsec. 
+    Evaluating each channel of each beam if ASKAPSoft fails to synthesize the beam, bmaj and bmin to 30 arcsec (WALLABY default)
     Bmaj and bmin for the first few channels are always zero. 
     """
     
@@ -734,8 +744,8 @@ def BeamStat_plot(item, n):
     pylab.rcParams.update(params)
 
     if item == 'MADMFD':
-        vmin = 0.5   # This is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
-        vmax = 1.0
+        vmin = 0.0   # This is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
+        vmax = 3.3
         title = 'MAD Max Flux Density'
         plot_name = 'beamStat_MADMFD.png'
         saved_fig = fig_dir+'/'+plot_name
@@ -775,19 +785,6 @@ def BeamStat_plot(item, n):
     return saved_fig, plot_name
 
 
-
-"""
-def check_Cleaning ():
-    
-    Checking if cleaning has performed down to the defined threshold. Both major and minor cycles. 
-    
-    This will involve ncore specified. 
-"""    
-"""
-def plot(infile, x, y, c=None, yerr=None, figure=None, arrows=None, xlabel='', ylabel='')
-"""
-
-
 ###########################################################
 # Main program where it calls all the functions
 ###########################################################
@@ -808,6 +805,7 @@ if not os.path.isdir(fig_dir):
 
 metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
+metafile_cal = sorted(glob.glob('metadata/mslist-cal*txt'))[0]
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
 fitsimage = ('image.restored.i.SB' + sbid + '.cube.contsub.fits')
 
@@ -827,6 +825,7 @@ askapsoft = get_Version(param)
 chan_width, cfreq, nchan = get_Metadata_freq(metafile_science)
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
+cal_sbid = metafile_cal[27:31]
 
 cubestat_linmos_contsub = glob.glob(diagnostics_dir+ '/cubestats-' + field + '/cubeStats*linmos.contsub.txt')[0] #mosaic contsub statistic
 
@@ -835,13 +834,18 @@ freq_range = str(start_freq)+'--'+str(end_freq)
 bmaj, bmin = get_FitsHeader(fitsimage)
 delta_freq_range = end_freq - start_freq
 theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
-mad_rms, med_madfm = cal_mosaic_Stats(cubestat_linmos_contsub)
-n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, med_madfm)
+#mad_rms, med_madfm = cal_mosaic_Stats(cubestat_linmos_contsub)
+mad_rms, med_rms = cal_mosaic_Stats(cubestat_linmos_contsub)
+n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, mad_rms, med_rms)
 hipass_cat = get_HIPASS(ra, dec)
 
 # Check if flagging statistic file is available. Earlier ASKAPSoft run did not include the file.
+#if not os.path.isfile(flagging_file):
+#    flagged_stat = 'N/A'
+#else:
+#    flagged_stat = get_Flagging(flagging_file)
 
-flagging_file = sorted(glob.glob('flagSummary/*SL.ms.flagSummary')) #Flagging statistic for spectral line
+flagging_file = sorted(glob.glob('diagnostics/FlaggingSummaries/*SL.ms.flagSummary')) #Flagging statistic for spectral line
 
 FLAG_STAT = []
 
@@ -851,10 +855,6 @@ for ffile in flagging_file:
 
 BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, n, theoretical_rms_mjy)
 
-#if not os.path.isfile(flagging_file):
-#    flagged_stat = 'N/A'
-#else:
-#    flagged_stat = get_Flagging(flagging_file)
     
     
 #############################    
@@ -1020,6 +1020,7 @@ html.write("""</td>
                     <table width="100%" border="1">
                     <tr>
                         <th>ASKAPsoft<br>version*</th>
+                        <th>Cal SBID</th>
                         <th>Frequency Range<br>(MHz)</th>
                         <th>Central Frequency<br>(MHz)</th>
                         <th>Channel Width<br>(kHz)</th>
@@ -1033,16 +1034,18 @@ html.write("""</td>
                         <td>{1}</td>
                         <td>{2}</td>
                         <td>{3}</td>
-                        <td>{4}x{5}</td>
+                        <td>{4}</td>
+                        <td>{5}x{6}</td>
                         <td>
-                        <a href="{6}" target="_blank"><img src="{7}" width="{8}" height="{9}" alt="thumbnail"></a>
+                        <a href="{7}" target="_blank"><img src="{8}" width="{9}" height="{10}" alt="thumbnail"></a>
                         </td>
                         <td>
-                        <a href="{10}" target="_blank"><img src="{11}" width="{12}" height="{13}" alt="thumbnail"></a>
+                        <a href="{11}" target="_blank"><img src="{12}" width="{13}" height="{14}" alt="thumbnail"></a>
                         </td>
                         <td>
-                        <a href="{14}" target="_blank"><img src="{15}" width="{12}" height="{16}" alt="thumbnail"></a>
+                        <a href="{15}" target="_blank"><img src="{16}" width="{17}" height="{18}" alt="thumbnail"></a>
                         """.format(askapsoft,
+                                   cal_sbid,
                                    freq_range,
                                    cfreq,
                                    chan_width_kHz,
@@ -1098,12 +1101,12 @@ html.write("""</td>
                     <td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                     <br><p>Stdev, MADFM</p>
-                    """.format(beamMinMax_plots[1],
-                               fig_dir+'/'+ thumb_beamMinMax[1],
+                    """.format(beamMinMax_plots[0],
+                               fig_dir+'/'+ thumb_beamMinMax[0],
                                sizeX,
                                sizeY,
-                               beamMinMax_plots[0],
-                               fig_dir+'/'+ thumb_beamMinMax[0],
+                               beamMinMax_plots[1],
+                               fig_dir+'/'+ thumb_beamMinMax[1],
                                sizeX,
                                sizeY,
                                beamMinMax_plots[2],
@@ -1114,12 +1117,12 @@ html.write("""</td>
                                fig_dir+'/'+ thumb_beamNoise[0],
                                sizeX,
                                sizeY,
-                               beamNoise_plots[1],
-                               fig_dir+'/'+ thumb_beamNoise[1],
-                               sizeX,
-                               sizeY,
                                beamNoise_plots[2],
                                fig_dir+'/'+ thumb_beamNoise[2],
+                               sizeX,
+                               sizeY,
+                               beamNoise_plots[1],
+                               fig_dir+'/'+ thumb_beamNoise[1],
                                sizeX,
                                sizeY))
 
@@ -1182,12 +1185,12 @@ html.write("""</td>
                                fig_dir+'/' + thumb_cubeplots[0],
                                sizeX,
                                sizeY,
-                               cube_plots[1],
-                               fig_dir+'/'+ thumb_cubeplots[1],
-                               sizeX,
-                               sizeY,
                                cube_plots[2],
                                fig_dir+'/'+ thumb_cubeplots[2],
+                               sizeX,
+                               sizeY,
+                               cube_plots[1],
+                               fig_dir+'/'+ thumb_cubeplots[1],
                                sizeX,
                                sizeY,
                                 QC_badchan_id,
