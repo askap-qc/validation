@@ -9,12 +9,13 @@
 # -- metadata/mslist-cal*txt
 # -- metadata/mslist-*101.txt
 # -- slurmOutput/*sh
-# -- image.restored.i.SB<SBID>.cube.contsub.fits
+# -- image.restored.i.SB<SBID>.cube.contsub.fits (optional see comment)
 # -- diagnostics/cubestats-<field>/*txt
 # -- diagnostics/*png
-# -- flaggSummary/*SL.ms.flagSummary
+# -- diagnostics/Flagging_Summaries/*SL.ms.flagSummary
+# -- SpectralCube_BeamLogs/*.txt
 #
-# Output files: all saved in Figures directory.
+# Output files: All saved in Figures directory. 
 #
 # To run type:
 #
@@ -22,9 +23,9 @@
 # e.g. python ASKAP_specline_val.py 8170
 #
 # Author: Bi-Qing For
-# Email: biqing.for@icrar.org
+# Email: biqing.for [at] icrar.org
 # 
-# Modified Date: 10 February 2020
+# Modified Date: 24 March 2020
 ################################################################################
 
 import os.path
@@ -42,17 +43,25 @@ from scipy.optimize import OptimizeWarning
 import math
 from scipy.constants import k as k_B
 import subprocess 
-import matplotlib.pyplot as plt 
 import astropy.coordinates as coord
 import astropy.units as u
 from astropy.io.fits import getheader
 from scipy.stats import iqr
-import matplotlib.pylab as pylab
 from scipy.optimize import curve_fit
 from numpy import inf
 from scipy import asarray as ar,exp
-import matplotlib.patches as mpatches
 from astroquery.vizier import Vizier
+
+# This step is necessary to avoid matplotlib using the Xwindows backend. 
+# Otherwise, it does not work on galaxy. 
+
+import matplotlib as mpl
+if os.environ.get('DISPLAY','') == '':
+    print('No display is found. Using the non-interactive Agg backend.')
+    mpl.use('Agg')
+import matplotlib.pyplot as plt 
+import matplotlib.pylab as pylab
+import matplotlib.patches as mpatches
 
 PI = math.pi
 
@@ -102,7 +111,7 @@ def get_HIPASS(ra, dec):
     Getting the HIPASS sources (HICAT; Meyer et al. 2004) within the 6x6 sq deg field through VizieR. 
     """
 
-    print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while....")
+    print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
     
     Vizier.ROW_LIMIT = -1
     v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat')
@@ -170,7 +179,7 @@ def get_Flagging(flagging_file):
             n_Chan = float(TOKS[2])
 
     autocorr_flagged_pct = (36 * n_Rec * n_Chan / total_uv)*100.0
-    data_flagged_pct = round(total_flagged_pct - autocorr_flagged_pct, 2)
+    data_flagged_pct = round(total_flagged_pct - autocorr_flagged_pct, 3)
 
     return data_flagged_pct
 
@@ -276,8 +285,8 @@ def cal_beam_MADMFD(infile):
 
     data = np.loadtxt(infile)
     maxfdensity = data[:,8]
-    mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 2)
-
+    mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 3)
+    
     return mad_maxfdensity
     
 
@@ -288,7 +297,7 @@ def cal_beam_AvgRMS(infile):
     
     data = np.loadtxt(infile)
     rms = data[:,3]
-    avg_rms = round(np.mean(rms), 2)
+    avg_rms = round(np.mean(rms), 3)
     
     return avg_rms
     
@@ -304,7 +313,7 @@ def cal_mosaic_Stats(infile):
     
 #    med_madfm = np.median(madfm)
     med_rms = np.median(rms)
-    mad_rms = round(median_absolute_deviation(rms), 2)
+    mad_rms = round(median_absolute_deviation(rms), 3)
 
     return mad_rms, med_rms
 
@@ -378,7 +387,7 @@ def cal_Theoretical_RMS(n_ant, tobs, chan_width):
     return rms_jy
 
 
-def cal_Beam_ExpRMS(FLAGSTAT, n, t_rms):
+def cal_Beam_ExpRMS(FLAGSTAT, t_rms):
     """
     Calculating the theoretical RMS of individual beam by taking into account the flagged percentage. 
     Assuming same weighting for the non-flagged data. 
@@ -389,7 +398,7 @@ def cal_Beam_ExpRMS(FLAGSTAT, n, t_rms):
     for stat in FLAGSTAT:
         beam_Exp_RMS = 1/math.sqrt(float(1-stat/100)) * t_rms   # 1/sqrt(non-flagged fraction) * theoretical rms in mJy
         BEAM_EXP_RMS.append(beam_Exp_RMS)
-
+    
     return BEAM_EXP_RMS
 
 
@@ -498,9 +507,9 @@ def Beam_ExpRMSplot(BEAM_EXPRMS, n):
     pylab.rcParams.update(params)
 
     beamXPOS, beamYPOS = BeamPosition()
-    VMIN = round(np.min(BEAM_EXPRMS), 1)
-    VMAX = round(np.max(BEAM_EXPRMS), 1)
-    
+    VMIN = round(np.min(BEAM_EXPRMS), 3)
+    VMAX = round(np.max(BEAM_EXPRMS), 3)
+
     for i in range(36):
         bnum = n[i]
         plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[BEAM_EXPRMS[bnum]], cmap='GnBu', edgecolors='black', vmin=VMIN, vmax=VMAX)
@@ -630,7 +639,7 @@ def NoiseRank_histplot(nchan):
             # Fitting a Gaussian and use spread (sigma) as a metric
             guess=[ymax_val, median_val_x, 5.0]
             coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
-            spread = round(np.abs(coeff[2]), 1)
+            spread = round(np.abs(coeff[2]), 3)
             ID_LABEL.append(qc_NoiseRank(spread))
     
             axs[i].bar(xcenter, N)
@@ -744,8 +753,8 @@ def BeamStat_plot(item, n):
     pylab.rcParams.update(params)
 
     if item == 'MADMFD':
-        vmin = 0.0   # This is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
-        vmax = 3.3
+        vmin = 0.0   # vamx = 3.0 is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
+        vmax = 3.0
         title = 'MAD Max Flux Density'
         plot_name = 'beamStat_MADMFD.png'
         saved_fig = fig_dir+'/'+plot_name
@@ -819,6 +828,14 @@ if len(param_file) >=1:
 else:
     param = param_file[0]
 
+# Check if image cube is available. For WALLABY, this is not needed as
+# the bmaj and bmin is fixed to 30"x30". 
+
+if not os.path.isfile(fitsimage):
+    bmaj = 30
+    bmin = 30
+else:
+    bmaj, bmin = get_FitsHeader(fitsimage)
 
 n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, total_obs_bw = get_Metadata(metafile)
 askapsoft = get_Version(param)
@@ -831,10 +848,8 @@ cubestat_linmos_contsub = glob.glob(diagnostics_dir+ '/cubestats-' + field + '/c
 
 start_freq, end_freq = get_Frequency_Range(cubestat_linmos_contsub)
 freq_range = str(start_freq)+'--'+str(end_freq)
-bmaj, bmin = get_FitsHeader(fitsimage)
 delta_freq_range = end_freq - start_freq
 theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
-#mad_rms, med_madfm = cal_mosaic_Stats(cubestat_linmos_contsub)
 mad_rms, med_rms = cal_mosaic_Stats(cubestat_linmos_contsub)
 n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, mad_rms, med_rms)
 hipass_cat = get_HIPASS(ra, dec)
@@ -845,7 +860,7 @@ hipass_cat = get_HIPASS(ra, dec)
 #else:
 #    flagged_stat = get_Flagging(flagging_file)
 
-flagging_file = sorted(glob.glob('diagnostics/FlaggingSummaries/*SL.ms.flagSummary')) #Flagging statistic for spectral line
+flagging_file = sorted(glob.glob(diagnostics_dir+'/Flagging_Summaries/*SL.ms.flagSummary')) #Flagging statistic for spectral line
 
 FLAG_STAT = []
 
@@ -853,8 +868,8 @@ for ffile in flagging_file:
     flag_stat = get_Flagging(ffile)
     FLAG_STAT.append(flag_stat)
 
-BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, n, theoretical_rms_mjy)
 
+BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, theoretical_rms_mjy)
     
     
 #############################    
@@ -866,9 +881,9 @@ BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, n, theoretical_rms_mjy)
 sizeX = 70
 sizeY = 70
 
-cube_plots = glob.glob(diagnostics_dir + '/cubestats-' + field + '/*linmos*.png')  #Mosaic statistic
-beamNoise_plots = glob.glob(diagnostics_dir + '/beamNoise*.png') #beam-by-beam statistic
-beamMinMax_plots = glob.glob(diagnostics_dir +'/beamMinMax*.png') #beam-by-beam statistic
+cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*linmos*.png'))  #Mosaic statistic
+beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.png')) #beam-by-beam statistic
+beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.png')) #beam-by-beam statistic
 
 thumb_cubeplots = []
 thumb_beamNoise = []
@@ -1101,16 +1116,20 @@ html.write("""</td>
                     <td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                     <br><p>Stdev, MADFM</p>
-                    """.format(beamMinMax_plots[0],
-                               fig_dir+'/'+ thumb_beamMinMax[0],
+                    """.format(beamMinMax_plots[1],
+                               fig_dir+'/'+ thumb_beamMinMax[1],
                                sizeX,
                                sizeY,
-                               beamMinMax_plots[1],
-                               fig_dir+'/'+ thumb_beamMinMax[1],
+                               beamMinMax_plots[0],
+                               fig_dir+'/'+ thumb_beamMinMax[0],
                                sizeX,
                                sizeY,
                                beamMinMax_plots[2],
                                fig_dir+'/'+ thumb_beamMinMax[2],
+                               sizeX,
+                               sizeY,
+                               beamNoise_plots[1],
+                               fig_dir+'/'+ thumb_beamNoise[1],
                                sizeX,
                                sizeY,
                                beamNoise_plots[0],
@@ -1119,10 +1138,6 @@ html.write("""</td>
                                sizeY,
                                beamNoise_plots[2],
                                fig_dir+'/'+ thumb_beamNoise[2],
-                               sizeX,
-                               sizeY,
-                               beamNoise_plots[1],
-                               fig_dir+'/'+ thumb_beamNoise[1],
                                sizeX,
                                sizeY))
 
@@ -1181,16 +1196,16 @@ html.write("""</td>
                     <form action="{14}" method="get" target="_blank">
                      <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
                     </form>
-                    """.format(cube_plots[0],
-                               fig_dir+'/' + thumb_cubeplots[0],
+                    """.format(cube_plots[1],
+                               fig_dir+'/' + thumb_cubeplots[1],
+                               sizeX,
+                               sizeY,
+                               cube_plots[0],
+                               fig_dir+'/'+ thumb_cubeplots[0],
                                sizeX,
                                sizeY,
                                cube_plots[2],
                                fig_dir+'/'+ thumb_cubeplots[2],
-                               sizeX,
-                               sizeY,
-                               cube_plots[1],
-                               fig_dir+'/'+ thumb_cubeplots[1],
                                sizeX,
                                sizeY,
                                 QC_badchan_id,
