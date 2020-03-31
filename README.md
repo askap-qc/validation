@@ -33,4 +33,5 @@
 | 1 percentie noise level |        |                                  | BQF          |
 
 Further information: https://jira.csiro.au/browse/ACES-368 |
-Useful resources from SPARCS: http://spacs.pbworks.com/w/page/126067640/dataquality
+Useful resources from SPARCS: http://spacs.pbworks.com/w/page/126067640/dataquality |
+GASKAP validation: https://github.com/jd-au/gaskap-validation
