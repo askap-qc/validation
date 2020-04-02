@@ -28,6 +28,7 @@
 # Modified Date: 24 March 2020
 ################################################################################
 
+import os
 import os.path
 import sys
 import glob
@@ -60,6 +61,8 @@ if os.environ.get('DISPLAY','') == '':
     print('No display is found. Using the non-interactive Agg backend.')
     mpl.use('Agg')
 import matplotlib.pyplot as plt 
+#        else:
+#            beamstat = 0.5
 import matplotlib.pylab as pylab
 import matplotlib.patches as mpatches
 
@@ -106,6 +109,7 @@ def get_FitsHeader(fitsimage):
 
     return bmaj, bmin
 
+
 def get_HIPASS(ra, dec):
     """
     Getting the HIPASS sources (HICAT; Meyer et al. 2004) within the 6x6 sq deg field through VizieR. 
@@ -148,24 +152,17 @@ def get_Version(param):
 
     return askapsoft
         
-
-def get_Flagging(flagging_file):
+def get_Flagging_KeyValues(flagging_file):
     """
-    Getting flagging statistics.
+    Getting Flagging Key Values. 
     """
-
-    line = subprocess.check_output(['tail', '-1', flagging_file]) #Grab the last line
-    str_line = line.decode('utf-8')
-    TOKS = str_line.split()
-    total_flagged_pct = float(TOKS[-2]) #data+autocorrelation
-    total_uv = float(TOKS[7])
 
     flag_infile = open(flagging_file, 'r')
     LINES = flag_infile.readlines()[:6]
     flag_infile.close()
-
-    N_Rec = 'nRec'
-    N_Chan = 'nChan'
+    
+    N_Rec = 'nRec'  # Total number of spectra feeds into the synthesis image. This is not always constant so grab the value beam-by-beam.
+    N_Chan = 'nChan'  # Total number of channel
 
     # Search for keywords in the file
     
@@ -178,10 +175,81 @@ def get_Flagging(flagging_file):
             TOKS = line.split()
             n_Chan = float(TOKS[2])
 
+    exp_count = n_Rec*35 #counting antenna number from zero based on the recorded data
+    
+    return n_Rec, n_Chan, exp_count
+
+
+def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
+    """
+    Getting flagging statistics and finding out beam-by-beam antenna based (completely) flagging. 
+    """
+
+    line = subprocess.check_output(['tail', '-1', flagging_file]) #Grab the last line
+    str_line = line.decode('utf-8')
+    TOKS = str_line.split()
+    total_flagged_pct = float(TOKS[-2]) #data+autocorrelation
+    total_uv = float(TOKS[7])
+
+    # Getting data flagged percentage
+    
     autocorr_flagged_pct = (36 * n_Rec * n_Chan / total_uv)*100.0
     data_flagged_pct = round(total_flagged_pct - autocorr_flagged_pct, 3)
 
-    return data_flagged_pct
+    # Finding out which antenna has been flagged completely.
+    ANT1, ANT2, FLAG = [], [], [] 
+    with open(flagging_file, 'r') as f:
+        for line in f:
+            if "#" not in line:  # grep -v "#"
+                if "Flagged" not in line:   # grep -v "Flagged"
+                    TOKS=line.split()       
+                    ant1 = int(TOKS[3])
+                    ant2 = int(TOKS[4])
+                    flag = float(TOKS[6])
+                    if (ant1 < ant2) and (flag == 100): # extract non-correlated antenna pairs with 100 percent flagging
+                        ANT1.append(ant1)
+                        ANT2.append(ant2)
+                        FLAG.append(flag)
+
+    with open('temp.dat' ,'w') as newlist:
+        for j in range(len(ANT1)):
+            newlist.write('%i %i %.2f\n' %(ANT1[j],ANT2[j],FLAG[j]))
+        
+    newlist.close()
+    f.close()
+
+    data = np.genfromtxt('temp.dat')
+    ant1, ant2, flag = data[:,0], data[:,1], data[:,2]
+
+    ANT_NAME = []
+    for x in range(0,36):
+        count1 = np.count_nonzero(ant1 == x)
+        count2 = np.count_nonzero(ant2 == x)
+        total_count = count1 + count2
+        if total_count == exp_count:
+            ant_num = x+1
+            ant_name = 'ak'+ str(ant_num)
+            ANT_NAME.append(ant_name)
+
+    total_flagged_ant = len(ANT_NAME)
+       
+    os.system('rm temp.dat')
+
+    ffile = open(fig_dir + '/flagged_antenna.txt','a')
+    
+    if total_flagged_ant > 1:
+        ffile.write(flagging_file[-24:-18])
+        ffile.write('\n')
+        for item in ANT_NAME:
+            ffile.write(item)
+            ffile.write('\n')
+    else:
+        ffile.write(flagging_file[-24:-18])
+        ffile.write('\n none \n')
+
+    ffile.close()
+                
+    return data_flagged_pct, total_flagged_ant
 
 
 def get_Metadata(metafile):
@@ -226,6 +294,8 @@ def get_Metadata(metafile):
             
     return n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, total_obs_bw
 
+
+
 def get_Metadata_freq(metafile_science):
     """
     Getting basic information on observed field (one field only). Frequency and channel related items. 
@@ -251,7 +321,7 @@ def get_Metadata_freq(metafile_science):
 
 def get_Frequency_Range(cubestat_contsub):
     """
-    Frequency range of the mosaic.
+    Frequency range and total channel of the mosaic
     """
     
     line = subprocess.check_output(['sed', '-n', '3p', cubestat_contsub])
@@ -261,7 +331,7 @@ def get_Frequency_Range(cubestat_contsub):
     line = subprocess.check_output(['tail', '-1', cubestat_contsub])
     TOKS = line.split()
     end_freq = round(float(TOKS[1]), 3)
-
+    
     return start_freq, end_freq
 
 
@@ -278,47 +348,33 @@ def make_Thumbnail(image, thumb_img, sizeX, sizeY, dir):
     return thumb_img
 
 
-def cal_beam_MADMFD(infile):
+def qc_Missing_Data(infile):
     """
-    Calculating the MAD of max flux density of each beam.
+    Checking for missing data channels in the mosaic cube. 
+    This helps checking for the correlator drop out or insufficient RFI flagging. 
+    e.g. 4MHz (correlator block) ~ 216 channels. 
     """
 
     data = np.loadtxt(infile)
     maxfdensity = data[:,8]
-    mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 3)
-    
-    return mad_maxfdensity
-    
 
-def cal_beam_AvgRMS(infile):
-    """
-    Calculating the average RMS of each beam. 
-    """
-    
-    data = np.loadtxt(infile)
-    rms = data[:,3]
-    avg_rms = round(np.mean(rms), 3)
-    
-    return avg_rms
-    
+    count = sum(map(lambda x : x==0, maxfdensity))
 
-def cal_mosaic_Stats(infile):
-    """
-    Calculating MAD RMS and median RMS for the mosaic cube   ###median MADFM for the mosaic cube. 
-    """
-
-    data = np.loadtxt(infile)
-#    rms, madfm = data[:,3], data[:,5]
-    rms = data[:,3]
-    
-#    med_madfm = np.median(madfm)
-    med_rms = np.median(rms)
-    mad_rms = round(median_absolute_deviation(rms), 3)
-
-    return mad_rms, med_rms
+    # Not using 216 channels because Doppler correction can affect the number
+    if count >= 100:
+        QC_mdata_id = 'bad'
+        QC_mdata_keyword = 'Yes > 100'
+    elif (0 < count < 100):
+        QC_mdata_id = 'ok'
+        QC_mdata_keyword = 'Yes < 100, n= '+str(count)
+    else:
+        QC_mdata_id = 'good'
+        QC_mdata_keyword = 'None'
+        
+    return QC_mdata_id, QC_mdata_keyword
 
 
-def qc_Bad_Chans (infile, mad_rms, med_rms):
+def qc_Bad_Chans(infile, mad_rms, med_rms):
     """
     Checking for bad channels in the mosaic cube. 
     """
@@ -367,7 +423,84 @@ def qc_Bad_Chans (infile, mad_rms, med_rms):
                 print ('yes')
     
     return n_bad_chan, mosaic_bad_chan, QC_badchan_id
+
+def qc_BeamLogs():
+    """
+    Evaluating each channel of each beam if ASKAPSoft fails to synthesize the beam, bmaj and bmin to 30 arcsec (WALLABY default)
+    Bmaj and bmin for the first few channels are always zero. 
+    """
     
+    file_dir = 'SpectralCube_BeamLogs'
+    basename = '/beamlog.image.restored.i.SB'+ sbid + '.cube.'+ field
+    QC_BEAMS_LABEL = []
+    
+    for i in range(0,36):
+        infile = file_dir + basename +'.beam%02d.txt'%(i)
+        beamlog_file = open(infile, 'r')
+        LINES = beamlog_file.readlines()[1:]
+        beamlog_file.close()
+        
+        for j in range(len(LINES)):
+            line = LINES[j]
+            TOKS = line.split()
+            bmaj = TOKS[1]
+            bmin = TOKS[2]
+            if (bmaj != '0' and bmaj != '30'):
+                qc_BMAJ_label = 'fail'
+                break        
+            else:
+                qc_BMAJ_label = 'pass'
+
+            if (bmin != '0' and bmin != '30'):
+                qc_BMIN_label = 'fail'
+                break        
+            else:
+                qc_BMIN_label = 'pass'
+  
+        if (qc_BMAJ_label == 'fail') or (qc_BMIN_label == 'fail'):
+            QC_BEAMS_LABEL.append('fail')
+        else:
+            QC_BEAMS_LABEL.append('pass')
+
+    return QC_BEAMS_LABEL
+
+def cal_beam_MADMFD(infile):
+    """
+    Calculating the MAD of max flux density of each beam.
+    """
+
+    data = np.loadtxt(infile)
+    maxfdensity = data[:,8]
+    mad_maxfdensity = round(median_absolute_deviation(maxfdensity), 3)
+    
+    return mad_maxfdensity
+    
+
+def cal_beam_AvgRMS(infile):
+    """
+    Calculating the average RMS of each beam. 
+    """
+    
+    data = np.loadtxt(infile)
+    rms = data[:,3]
+    avg_rms = round(np.mean(rms), 3)
+    
+    return avg_rms
+    
+
+def cal_mosaic_Stats(infile):
+    """
+    Calculating MAD RMS and median RMS for the mosaic cube.    
+    """
+
+    data = np.loadtxt(infile)
+    rms = data[:,3]
+
+    med_rms = np.median(rms)
+    mad_rms = round(median_absolute_deviation(rms), 3)
+
+    return mad_rms, med_rms
+
 
 def cal_Theoretical_RMS(n_ant, tobs, chan_width):
     """
@@ -412,47 +545,6 @@ def cal_binnedAvg(dataArray, N):
     return mean_bin
 
 
-def qc_BeamLogs():
-    """
-    Evaluating each channel of each beam if ASKAPSoft fails to synthesize the beam, bmaj and bmin to 30 arcsec (WALLABY default)
-    Bmaj and bmin for the first few channels are always zero. 
-    """
-    
-    file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.i.SB'+ sbid + '.cube.'+ field
-    QC_BEAMS_LABEL = []
-    
-    for i in range(0,36):
-        infile = file_dir + basename +'.beam%02d.txt'%(i)
-        beamlog_file = open(infile, 'r')
-        LINES = beamlog_file.readlines()[1:]
-        beamlog_file.close()
-        
-        for j in range(len(LINES)):
-            line = LINES[j]
-            TOKS = line.split()
-            bmaj = TOKS[1]
-            bmin = TOKS[2]
-            if (bmaj != '0' and bmaj != '30'):
-                qc_BMAJ_label = 'fail'
-                break        
-            else:
-                qc_BMAJ_label = 'pass'
-
-            if (bmin != '0' and bmin != '30'):
-                qc_BMIN_label = 'fail'
-                break        
-            else:
-                qc_BMIN_label = 'pass'
-  
-        if (qc_BMAJ_label == 'fail') or (qc_BMIN_label == 'fail'):
-            QC_BEAMS_LABEL.append('fail')
-        else:
-            QC_BEAMS_LABEL.append('pass')
-
-    return QC_BEAMS_LABEL
-
-
 def FlagStat_plot(FLAGSTAT, n):
     """
     Plotting and visualising flagging statistics of 36 beams. 
@@ -483,6 +575,48 @@ def FlagStat_plot(FLAGSTAT, n):
     plt.title(title)
     cb = plt.colorbar()
     cb.set_label('Percentage')
+    cb.ax.tick_params(labelsize=10)
+
+    plt.savefig(saved_fig)
+    plt.close()
+
+    return saved_fig, plot_name
+
+def FlagAnt_plot(N_FLAG_ANT, n):
+    """
+    Plotting and visualising number of flagged (completely) antennas beam-by-beam. 
+    """
+
+    title = 'No. of 100% flagged antenna'
+    plot_name = 'FlagAnt.png'
+    saved_fig = fig_dir+'/'+plot_name
+    
+    from_list = mpl.colors.LinearSegmentedColormap.from_list
+
+    params = {'axes.labelsize': 10,
+              'axes.titlesize': 10,
+              'font.size':10}
+
+    pylab.rcParams.update(params)
+
+    beamXPOS, beamYPOS = BeamPosition()
+
+    maxflag = np.max(N_FLAG_ANT)+1
+    cmap = plt.get_cmap('summer', maxflag)
+
+    for i in range(36):
+        bnum = n[i]
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[N_FLAG_ANT[bnum]+1], cmap=cmap, edgecolors='black',vmin=0, vmax=maxflag)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i])
+
+    plt.xlim(0,0.7)
+    plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    plt.title(title)
+    cb = plt.colorbar()
+    labels =np.arange(0,maxflag)
+    loc = labels + .5
+    cb.set_ticks(loc)
+    cb.set_ticklabels(labels)
     cb.ax.tick_params(labelsize=10)
 
     plt.savefig(saved_fig)
@@ -575,7 +709,7 @@ def qc_NoiseRank(spread):
     
     if (spread <= 2.5*sigma):
         qc_label = 'good'
-    elif (2.5*sigma < spread < 4*sigma):
+    elif (2.5*sigma < spread < 3*sigma):
         qc_label = 'ok'
     else:
         qc_label = 'bad'
@@ -641,7 +775,7 @@ def NoiseRank_histplot(nchan):
             coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
             spread = round(np.abs(coeff[2]), 3)
             ID_LABEL.append(qc_NoiseRank(spread))
-    
+#            print (infile, spread)
             axs[i].bar(xcenter, N)
             axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
             axs[i].set_xlim(xmin_val-3, xmax_val+3)
@@ -753,14 +887,14 @@ def BeamStat_plot(item, n):
     pylab.rcParams.update(params)
 
     if item == 'MADMFD':
-        vmin = 0.0   # vamx = 3.0 is a conservative cut off based on M83 field. 0.5 mJy/beam is more realistic.
+        vmin = 0.0   # vmax = 3.0 is a conservative cut off based on M83 field. 
         vmax = 3.0
         title = 'MAD Max Flux Density'
         plot_name = 'beamStat_MADMFD.png'
         saved_fig = fig_dir+'/'+plot_name
         
 
-    if item == 'Avg_RMS':
+    if item == 'Avg_RMS':  # this is not used 
         vmin = 2.0
         vmax = 4.0
         title = 'Mean RMS'
@@ -777,8 +911,6 @@ def BeamStat_plot(item, n):
                 beamstat = cal_beam_MADMFD(infile)
             if item == 'Avg_RMS':
                 beamstat = cal_beam_AvgRMS(infile)
-#        else:
-#            beamstat = 0.5
 
         plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
         plt.text(beamXPOS[i], beamYPOS[i], n[i])
@@ -848,10 +980,11 @@ cubestat_linmos_contsub = glob.glob(diagnostics_dir+ '/cubestats-' + field + '/c
 
 start_freq, end_freq = get_Frequency_Range(cubestat_linmos_contsub)
 freq_range = str(start_freq)+'--'+str(end_freq)
-delta_freq_range = end_freq - start_freq
+delta_freq_range = round((end_freq - start_freq), 1)
 theoretical_rms_mjy = (cal_Theoretical_RMS(float(n_ant), tobs, chan_width))*1000.
 mad_rms, med_rms = cal_mosaic_Stats(cubestat_linmos_contsub)
 n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, mad_rms, med_rms)
+QC_mdata_id, QC_mdata_keyword = qc_Missing_Data(cubestat_linmos_contsub)
 hipass_cat = get_HIPASS(ra, dec)
 
 # Check if flagging statistic file is available. Earlier ASKAPSoft run did not include the file.
@@ -862,12 +995,16 @@ hipass_cat = get_HIPASS(ra, dec)
 
 flagging_file = sorted(glob.glob(diagnostics_dir+'/Flagging_Summaries/*SL.ms.flagSummary')) #Flagging statistic for spectral line
 
-FLAG_STAT = []
+FLAG_STAT, N_FLAG_ANT = [], []
+
+if os.path.isfile(fig_dir+'/flagged_antenna.txt'):
+    os.system('rm '+ fig_dir+'/flagged_antenna.txt')
 
 for ffile in flagging_file:
-    flag_stat = get_Flagging(ffile)
+    n_Rec, n_Chan, exp_count = get_Flagging_KeyValues(ffile)
+    flag_stat, n_flag_ant = get_Flagging(ffile, n_Rec, n_Chan, exp_count)
     FLAG_STAT.append(flag_stat)
-
+    N_FLAG_ANT.append(n_flag_ant)
 
 BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, theoretical_rms_mjy)
     
@@ -942,6 +1079,9 @@ Flagged_fig, Flagged_plot = FlagStat_plot(FLAG_STAT, n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ Flagged_plot
 make_Thumbnail(Flagged_fig, thumb_img, sizeX, sizeY, fig_dir)
 
+Flagged_ant_fig, Flagged_ant_plot = FlagAnt_plot(N_FLAG_ANT, n)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ Flagged_ant_plot
+make_Thumbnail(Flagged_ant_fig, thumb_img, sizeX, sizeY, fig_dir)
 
 
 ##############################
@@ -1042,6 +1182,7 @@ html.write("""</td>
                         <th>Synthesised Beam<br>(arcsec x arcsec)</th>
                         <th>Beam Logs</th>
                         <th>Flagged Visibilities</th>
+                        <th>Flagged Antennas</th>
                         <th>Expected RMS</th>
                     </tr>
                     <tr align="middle">
@@ -1059,6 +1200,9 @@ html.write("""</td>
                         </td>
                         <td>
                         <a href="{15}" target="_blank"><img src="{16}" width="{17}" height="{18}" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="{19}" target="_blank"><img src="{20}" width="{21}" height="{22}" alt="thumbnail"></a>
                         """.format(askapsoft,
                                    cal_sbid,
                                    freq_range,
@@ -1072,6 +1216,10 @@ html.write("""</td>
                                    sizeY,
                                    Flagged_fig, 
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + Flagged_plot,
+                                   sizeX,
+                                   sizeY,
+                                   Flagged_ant_fig, 
+                                   fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + Flagged_ant_plot,
                                    sizeX,
                                    sizeY,
                                    beamExpRMS_fig, 
@@ -1181,6 +1329,7 @@ html.write("""</td>
                     <th>Continuum Subtracted Cube</th>
                     <th>Residual Cube</th>
                     <th>Number of Bad Channel</th>
+                    <th>Missing Data <br>(Channel)</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -1196,6 +1345,7 @@ html.write("""</td>
                     <form action="{14}" method="get" target="_blank">
                      <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
                     </form>
+                    <td id='{15}'>{16}
                     """.format(cube_plots[1],
                                fig_dir+'/' + thumb_cubeplots[1],
                                sizeX,
@@ -1210,7 +1360,10 @@ html.write("""</td>
                                sizeY,
                                 QC_badchan_id,
                                n_bad_chan,
-                               fig_dir+'/' + mosaic_bad_chan))
+                               fig_dir+'/' + mosaic_bad_chan,
+                               QC_mdata_id,
+                               QC_mdata_keyword))
+
 
 html.write("""</td> 
               </tr>
