@@ -235,7 +235,8 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
        
     os.system('rm temp.dat')
 
-    ffile = open(fig_dir + '/flagged_antenna.txt','a')
+    flag_ant_file = 'flagged_antenna.txt'
+    ffile = open(fig_dir + '/'+ flag_ant_file,'a')
     
     if total_flagged_ant > 1:
         ffile.write(flagging_file[-24:-18])
@@ -249,7 +250,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
 
     ffile.close()
                 
-    return data_flagged_pct, total_flagged_ant
+    return data_flagged_pct, total_flagged_ant, flag_ant_file
 
 
 def get_Metadata(metafile):
@@ -1002,7 +1003,7 @@ if os.path.isfile(fig_dir+'/flagged_antenna.txt'):
 
 for ffile in flagging_file:
     n_Rec, n_Chan, exp_count = get_Flagging_KeyValues(ffile)
-    flag_stat, n_flag_ant = get_Flagging(ffile, n_Rec, n_Chan, exp_count)
+    flag_stat, n_flag_ant, flag_ant_file = get_Flagging(ffile, n_Rec, n_Chan, exp_count)
     FLAG_STAT.append(flag_stat)
     N_FLAG_ANT.append(n_flag_ant)
 
@@ -1200,9 +1201,11 @@ html.write("""</td>
                         </td>
                         <td>
                         <a href="{15}" target="_blank"><img src="{16}" width="{17}" height="{18}" alt="thumbnail"></a>
+                          <form action="{19}" method="get" target="_blank">
+                          <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
                         </td>
                         <td>
-                        <a href="{19}" target="_blank"><img src="{20}" width="{21}" height="{22}" alt="thumbnail"></a>
+                        <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                         """.format(askapsoft,
                                    cal_sbid,
                                    freq_range,
@@ -1222,6 +1225,7 @@ html.write("""</td>
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + Flagged_ant_plot,
                                    sizeX,
                                    sizeY,
+                                   fig_dir+'/' + str(flag_ant_file),
                                    beamExpRMS_fig, 
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + beamExpRMS_plot,
                                    sizeX,
@@ -1358,7 +1362,7 @@ html.write("""</td>
                                fig_dir+'/'+ thumb_cubeplots[2],
                                sizeX,
                                sizeY,
-                                QC_badchan_id,
+                               QC_badchan_id,
                                n_bad_chan,
                                fig_dir+'/' + mosaic_bad_chan,
                                QC_mdata_id,
