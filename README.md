@@ -1,38 +1,38 @@
-# validation
+# WALLABY Spectral Line Validation
 
-### A wish-list of infromation required for ASKAP spectral line data validation
+This script (wallaby_hi_val.py) generates an ASKAP WALLABY spectral line cube HTML report. The report contains basic observational information of the data cube, statistics and metrics for validating the data. 
 
-| Basic Info              | Status | Required file                    | Code variable  | Suggested by |
-|-------------------------|:------:|----------------------------------|----------------|--------------|
-| SBID                    | ok     | None, input parameter            | sbid           | BQF          |
-| Obs-date start          | ok     | metadata/mslist\*txt              | start_obs_date | BQF          |
-| Obs-date end            | ok     | metadata/mslist\*txt              | end_obs_date   | BQF          |
-| Obs duration (hrs)      | ok     | metadata/mslist\*txt              | duration_hrs   | BQF          |
-| ASKAPsoft version       |        | Unknown (fits header history)     | askapsoft      | BQF          |
-| Field                   | ok     | metadata/mslist\*txt              | field          | BQF          |
-| R.A                     | ok     | metadata/mslist\*txt              | ra             | BQF          |
-| Dec                     | ok     | metadata/mslist\*txt              | dec            | BQF          |
-| Observed bandwidth      | ok     | metadata/mslist\*txt              | bw             | BQF          |
-| Central frequency       | ok     | metadata/mslist\*txt              | cfreq          | BQF          |
-| Number of antenna       | ok     | metadata/mslist\*txt              | number_ant     | BQF          |
-| Processed channel range | ok     | slurmOutput/\<latest\_executed\>.sh | chan_range     | BQF          |
-| Synthesized beam (bmaj) |        | Unknown (fits header)             | bmaj             | BQF          |
-| Synthesized beam (bmin) |        | Unknown (fits header)             | bmin               | BQF          
-### Validation metrics required for ASKAP pectral line data
+## Requirements
 
-| Validation metrics      | Status | Required file                    | Edited by |
-|-------------------------|:------:|----------------------------------|--------------|
-| Flagging fringe rotation|        | Measurement set                  | BQF          |
-| Flagging RFI            |        | Measurement set                  | BQF          |  
-| Flagging bandwidth edges|        | Measurement set                  | BQF          |
-| Flagging autocorrelations |        | Measurement set                | BQF          |
-| Max flux density        |        | CubeStats\*txt                   | BQF          |
-| Continuum subtraction   |        |                                  | BQF          |
-| Cleaning                |        |                                  | BQF          |
-| Sidelobes               |        |                                  | BQF          |
-| 1 percentie noise level |        |                                  | BQF          |
+- python 3.x
+- astropy
+- scipy
+- matplotlib
 
-Further information: https://jira.csiro.au/browse/ACES-368 |
-Useful resources from SPARCS: http://spacs.pbworks.com/w/page/126067640/dataquality |
-GASKAP validation: https://github.com/jd-au/gaskap-validation |
-Continuum substraction discussion page: https://confluence.csiro.au/display/askapsst/Continuum+Subtraction 
+## Required files and directories
+
+- metadata/mslist-scienceData*txt
+- metadata/mslist-cal*txt
+- metadata/mslist-*101.txt
+- slurmOutput/*sh
+- image.restored.i.SB<SBID>.cube.contsub.fits (optional see comment)
+- diagnostics/cubestats-<field>/*txt
+- diagnostics/*png
+- diagnostics/Flagging_Summaries/*SL.ms.flagSummary
+- SpectralCube_BeamLogs/*.txt
+
+## Usage
+
+To run type: python <script name> <SBID>
+
+## Output files
+
+The html report is saved in the directory where the script is ran.  
+
+## Description
+
+## Useful links
+- urther information: https://jira.csiro.au/browse/ACES-368 
+- Useful resources from SPARCS: http://spacs.pbworks.com/w/page/126067640/dataquality 
+- GASKAP validation: https://github.com/jd-au/gaskap-validation 
+- Continuum substraction discussion page: https://confluence.csiro.au/display/askapsst/Continuum+Subtraction 
