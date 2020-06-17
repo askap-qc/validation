@@ -40,9 +40,6 @@ for i in range(nch):
 
 #####################################################################
 
-#plt.xlabel('frequency (MHz)')
-#plt.ylabel('flux (mJy/bm)')
-
 fontP = FontProperties()
 fontP.set_size('small')
 
@@ -87,7 +84,6 @@ plt.savefig('finalplots/'+sys.argv[1]+'_'+sys.argv[2]+'_'+sys.argv[3]+'_1.png',d
 #plt.show()
 
 #####################################################################
-
 
 precrms=numpy.nanstd(1000*prec[:])
 postcrms=numpy.nanstd(1000*postc[:])
@@ -241,14 +237,8 @@ chav=numpy.zeros(6)
 for i in range (6):
   chav[i]=pow(4,i)
 
-#fmax=fint[0]
-#fmin=fint[9]
-#fd=fint[8]-fint[9]
-
-#cmap = cm.rainbow(numpy.linspace(0,1,numpy.ceil((fmax-fmin)/fd)))
 cmap = cm.rainbow(numpy.linspace(0,1,10))
 
-#tt=numpy.floor((fint[:10]-fmin)/fd)
 tt=numpy.zeros(10)
 for i in range(10):
     tt[i]=10-i-1
