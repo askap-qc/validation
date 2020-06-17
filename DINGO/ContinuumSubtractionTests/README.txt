@@ -5,3 +5,7 @@ image.restored.i.<SB number>.<tile number>.<beam number>.contsub.fits
 selavy-results_<SB number>_<tile number>_<beam number>.txt
 
 - Please replace the <SB number>, <tile number> and <beam number> with the correct values in runfile.sh
+
+- I used Python 2.7, codes might need tweaking for Python 3.
+
+- pdfjoin needs to be installed.
