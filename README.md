@@ -16,14 +16,14 @@ This script (wallaby_hi_val.py) generates an ASKAP WALLABY spectral line cube HT
 - metadata/mslist-*101.txt
 - slurmOutput/*sh
 - image.restored.i.SB<SBID>.cube.contsub.fits (optional see comment)
-- diagnostics/cubestats-<field>/*txt
+- diagnostics/cubestats-'<field>'/*txt
 - diagnostics/*png
 - diagnostics/Flagging_Summaries/*SL.ms.flagSummary
 - SpectralCube_BeamLogs/*.txt
 
 ## Usage
 
-To run type: python <script name> <SBID>
+To run type: python <script name> '<SBID>'
 
 ## Output files
 
