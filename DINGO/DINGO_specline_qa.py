@@ -1,5 +1,5 @@
 ################################################################################
-# This script generates an ASKAP spectral line cube HTML report.
+# This script generates an ASKAP DINGO spectral line cube HTML report.
 #
 # Compatibility: Python version 3.x
 #
@@ -13,6 +13,9 @@
 # -- diagnostics/cubestats-<field>/*txt
 # -- diagnostics/*png
 # -- diagnostics/Flagging_Summaries/*SL.ms.flagSummary
+# (below two are required only for continuum residaul tests)
+# -- image.restored.i.SB_ID.cube.contsub.fits
+# -- selavy-cont-image*restored/selavy-image*islands.xml'
 #
 # Output files: all saved in /validation_spectral/Figures directory.
 #
@@ -25,17 +28,19 @@
 #
 # Changed to work for ASKAP DINGO specral line data validation by Jonghwan Rhee
 # Modified on 1 September 2020
+# Changed to add continuum residual test part for ASKAP DINGO specral line data
+# validation by Jonghwan Rhee (Modified on 25 September 2020)
 #
 ################################################################################
 
 from astropy.stats import median_absolute_deviation
 from astropy.utils.exceptions import AstropyWarning
-from astropy.io.fits import getheader
+from astropy.io.fits import getheader, getdata
+from astropy.io.votable import parse_single_table
 from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
 import astropy.units as u
 
-from scipy import asarray as ar, exp
-from scipy.optimize import OptimizeWarning
 from scipy.constants import k as k_B
 from scipy.optimize import curve_fit
 from scipy.stats import iqr
@@ -46,6 +51,7 @@ from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
 import matplotlib.patches as mpatches
+from matplotlib import cm
 
 from datetime import datetime
 from PIL import Image
@@ -116,7 +122,7 @@ def gauss(x, *p):
     """
     A, mu, sigma = p
 
-    return A * exp(-(x - mu)**2 / (2. * sigma**2))
+    return A * np.exp(-(x - mu)**2 / (2. * sigma**2))
 
 
 def get_FitsHeader(fitsimage):
@@ -254,17 +260,17 @@ def get_Flagging(flagging_file):
     -------
     data_flagged_pct: Flagged data fraction (%)
     """
+    with open(flagging_file, 'r') as f:
+        flag_info_list = f.readlines()
 
-    line = subprocess.check_output(
-        ['tail', '-1', flagging_file])  # Grab the last line
-    str_line = line.decode('utf-8')
-    TOKS = str_line.split()
-    total_flagged_pct = float(TOKS[-2])  # data+autocorrelation
-    total_uv = float(TOKS[7])
+    for line in flag_info_list:
+        if re.search('Total flagging', line):
+            TOKS = line.split()
+            total_flagged_pct = float(TOKS[-2])  # data+autocorrelation
+            total_uv = float(TOKS[7])
 
-    flag_infile = open(flagging_file, 'r')
-    LINES = flag_infile.readlines()[:6]
-    flag_infile.close()
+    with open(flagging_file, 'r') as flag_infile:
+        LINES = flag_infile.readlines()[:6]
 
     N_Rec = 'nRec'
     N_Chan = 'nChan'
@@ -676,7 +682,7 @@ def FlagStat_plot(FLAGSTAT, field):
 
     for i in range(36):
         x0, y0 = offsets[i]
-        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20c', ec='k', vmin=0, vmax=100)
+        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20b', ec='k', vmin=0, vmax=100)
         plt.text(x0, y0, '%d'%i, fontsize=12, va='center', ha='center')
 
     [i.set_linewidth(1.5) for i in ax.spines.values()]
@@ -1057,6 +1063,136 @@ def NoiseRank_QCplot(list_id_label, field):
     return saved_fig, plot_name
 
 
+def extract_spec(pos, cube):
+    """ Extract a spectrum from a data cube
+
+    parameters
+    ----------
+    pos: pixel positions of sources
+    cube: data cube name where a spectrum is extracted
+
+    Returns
+    -------
+    spec: array containing extracted spectra in mJy
+    """
+
+    spec = None
+    for i in range(len(pos[0])):
+        spec_tmp = getdata(cube)[:, 0, pos[1][i], pos[0][i]] * 1e3
+        if spec is None:
+            spec = spec_tmp
+        else:
+            spec = np.c_[spec, spec_tmp]
+
+    return spec
+
+
+def remove_outliers(x):
+    """ Mask out outliers as nan value in the extracted spectra
+
+    Parameters
+    ----------
+    x: an extracted spectra array (freq, source)
+
+    Returns
+    -------
+    spec: the spectra array with outliers masked
+    """
+    spec = x.copy()
+    lo_quartile = np.nanpercentile(spec, 10, axis=0)
+    up_quartile = np.nanpercentile(spec, 90, axis=0)
+    IQR = 1.5 * (up_quartile - lo_quartile)
+    lo_bound = lo_quartile - IQR
+    up_bound = up_quartile + IQR
+    mask = (spec < lo_bound) | (spec > up_bound)
+    spec[mask] = np.nan
+
+    return spec
+
+
+def select_sources(catalog, pos_cen, n_source=11):
+    """ Select brightest continuum sources based on integrated flux within the
+        central 5 x 5 sq. deg area.
+
+    Parameters
+    ----------
+    catalog: continuum catalogue (sorted by source brightness)
+    pos_cen: field centre coordinate
+    n_source: number of top brightest source to select
+
+    Returns
+    -------
+    catalog_new: new catalog based on the selection criteria
+    """
+    ra = catalog['ra_deg_cont']
+    dec = catalog['dec_deg_cont']
+    mask = (abs(ra.data - cent[0]) <= 2.5) & (abs(dec.data - cent[1]) <= 2.5)
+    catalog_new = catalog[mask][:n_source]
+
+    return catalog_new
+
+
+def cal_dist(ra, dec, cent):
+    """ Calculate the distance from the field center
+
+    Parameters
+    ----------
+    ra: ra coordinates
+    dec: dec coordinates
+    cent: field center coordinats (ra, dec)
+
+    Returns
+    -------
+    dist: distance from the field centre
+    """
+    c = SkyCoord(cent[0], cent[1], unit=(u.deg, u.deg))
+    coords = SkyCoord(ra.data, dec.data, unit=(u.deg, u.deg))
+    dist = c.separation(coords)
+
+    return dist
+
+
+def rebin_spec(x, y, bin_size, method):
+    """ Rebinning a spectrum with a bin size
+
+    Parameters
+    ----------
+    x : x axis (frequency)
+    y : a spectrum
+    bin_size : bin size in velocity or frequency
+    method : re-binning method ('avg' : average / 'sum' : sum)
+
+    Returns
+    -------
+    x_bins: rebinned x axis
+    spec_rebinned : a rebinned spectrum with a bin size
+
+    """
+    x_bins = x[::bin_size]
+    x_rebin = x[int(bin_size/2)::bin_size]
+    mask_nan = np.isnan(y)
+    y[mask_nan] = 0.0
+
+    y_rebin = None
+    for i in range(y.shape[1]):
+        if y_rebin is None:
+            if method == 'avg':
+                y_rebin = np.histogram(x, bins=x_bins, weights=y[:,i])[0] / np.histogram(x[~mask_nan], bins=x_bins)[0]
+            elif method == 'sum':
+                y_rebin = np.histogram(x, bins=x_bins, weights=y[:,i])[0]
+        else:
+            if method == 'avg':
+                y_tmp = np.histogram(x, bins=x_bins, weights=y[:,i])[0] / np.histogram(x[~mask_nan], bins=x_bins)[0]
+                y_rebin = np.c_[y_rebin, y_tmp]
+            elif method == 'sum':
+                y_tmp = np.histogram(x, bins=x_bins, weights=y[:,i])[0]
+                y_rebin = np.c_[y_rebin, y_tmp]
+    if x_rebin.shape[0] > y_rebin.shape[0]:
+        x_rebin = x_rebin[:-1]
+
+    return x_rebin, y_rebin
+
+
 
 ################################################################################
 # Main program where it calls all the functions
@@ -1065,11 +1201,13 @@ def NoiseRank_QCplot(list_id_label, field):
 # ignore astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
 
+# Switch to run contsub test
+do_contsub_test = True
+
 # Set file names and directories
 diagnostics_dir = os.getcwd() + '/diagnostics'
 qa_dir = os.getcwd() + '/validation_spectral'
-fig_dir = qa_dir + '/' + 'Figures'
-#sbid = str(sys.argv[1])
+fig_dir = qa_dir + '/Figures'
 sbid = sorted(glob('metadata/mslist-scienceData*txt'))[0].split('_')[1][2:]
 html_name = qa_dir + '/spectral_report_SB' + sbid + '.html'
 
@@ -1080,8 +1218,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob('slurmOutput/*.sh'))
-#fitsimage = ('image.restored.i.SB' + sbid + '.cube.contsub.fits')
-beamlogs_file = sorted(glob('./diagnostics/cubestats-G23_T0*/beamlog.image.restored.i.SB' + sbid + '.cube.G23_T0*beam00.txt'))
+beamlogs_file = sorted(glob('./diagnostics/cubestats-G15_T0*/beamlog.image.restored.i.SB' + sbid + '.cube.G15_T0*beam00.txt'))
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1112,7 +1249,7 @@ else:
     t_int.append(tobs_hr)
 
 # mosaic contsub statistic
-cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-G23*/cubeStats*linmos.contsub.txt'))
+cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-G15*/cubeStats*linmos.contsub.txt'))
 cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*cube.contsub.txt'))
 
 # get frequency information
@@ -1165,6 +1302,189 @@ BEAM_EXP_RMS_A = cal_Beam_ExpRMS(FLAG_STAT_A, theoretical_rms[0])
 BEAM_EXP_RMS_B = cal_Beam_ExpRMS(FLAG_STAT_B, theoretical_rms[1])
 
 
+################################################################################
+# Run continuum residual test based on Sambit's code for this test
+if do_contsub_test:
+
+    # Input files
+    selavy_file = glob('./selavy-cont-image*restored/selavy-image*islands.xml')[0]
+    fitscube = glob('image.restored.i.SB' + sbid + '.cube.contsub.fits')[0]
+
+    # Read selavy continuum catalogue
+    selavy_cat = parse_single_table(selavy_file).to_table(use_names_over_ids=True)
+    selavy_cat.sort('flux_int', reverse=True)
+
+    # Select 11 brightest sources (flux_int > 200 mJ) within the central 5 x 5 sq. deg
+    cent = field_cen
+    selavy_bright = select_sources(selavy_cat, cent)
+
+    ra = selavy_bright['ra_deg_cont']
+    dec = selavy_bright['dec_deg_cont']
+    n_comp = selavy_bright['n_components']
+    f_int = selavy_bright['flux_int']
+    dist = cal_dist(ra, dec, cent)
+
+    # Add central pix info
+    f_int_all = np.append(f_int.data.data, np.zeros(1))
+    dist_all = np.append(dist.value, np.zeros(1))
+    n_comp_all = np.append(n_comp.data.data, np.zeros(1))
+    mask_multi = n_comp_all > 1
+
+    # Get header info from the mosaicked data cube
+    hd = getheader(fitscube)
+    wcs = WCS(hd).sub(['celestial'])
+
+    # Convert sky coordinates to pixel coordinates
+    pos = np.vstack((ra.data.data, dec.data.data)).T
+    pix = np.transpose(wcs.wcs_world2pix(pos, 0))
+    pix = np.rint(pix).astype('int64')
+    pos_cent = np.array([cent])
+    pix_cent = np.rint(wcs.wcs_world2pix(pos_cent, 0)).astype('int64')
+
+    # Add central pixel to the pixel array
+    pix_all = np.c_[pix, pix_cent.T]
+
+    # Extract spectra
+    spec = extract_spec(pix_all, fitscube)
+
+    # Make frequency array
+    chan = np.arange(hd['NAXIS4'])
+    freq = (hd['CRVAL4'] + chan * hd['CDELT4']) * 1e-6    # in MHz
+
+    # Cut out the edges of spectra that have some artefacts
+    spec = spec[256:6689,:]
+    freq = freq[256:6689]
+
+    # Mark out outliers from the extracted spectra
+    spec2 = remove_outliers(spec)
+
+    # Calculate mean and std of spectra
+    spec_mean = np.nanmean(spec2, axis=0)
+    spec_std = np.nanstd(spec2, axis=0)
+
+    # Rebin spectra with increasing a bin size (pow of 4)
+    bins = np.power(4, np.arange(0,6))
+
+    freq_rebin = {}
+    spec_rebin = {}
+    spec_rebin_std = None
+    for bin_size in np.power(4, np.arange(1,6)):
+        freq_rebin[f'bin_size:{bin_size}'] = rebin_spec(freq, spec2, bin_size, 'sum')[0]
+        spec_rebin[f'bin_size:{bin_size}'] = rebin_spec(freq, spec2, bin_size, 'sum')[1]
+        if spec_rebin_std is None:
+            spec_rebin_std = np.nanstd(rebin_spec(freq, spec2, bin_size, 'sum')[1], axis=0)
+        else:
+            spec_rebin_std = np.c_[spec_rebin_std, np.nanstd(rebin_spec(freq, spec2, bin_size, 'sum')[1], axis=0)]
+
+    # Concatenate stats of orginal spectra into rebinned stats
+    spec_stats = np.c_[spec_std, spec_rebin_std]
+
+
+    # Plot an individual spectrum extracted from brigtest continuum sources
+    # and central pixel
+    plt.close('all')
+    fig, axs = plt.subplots(6, 2, figsize=(10,10), constrained_layout=True)
+    cmap = cm.rainbow(np.linspace(0, 1, 6))
+    for i, ax in enumerate(axs.flat):
+        ax.plot(freq, spec[:,i], color=cmap[0])
+        [i.set_linewidth(1.2) for i in ax.spines.values()]
+        ax.set_ylim(-15, 15)
+        if (i % 2 == 0) and (i < 10):
+            ax.set_ylabel('Flux (mJy/beam)')
+            ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
+        elif i == 10:
+            ax.set_ylabel('Flux (mJy/beam)')
+            ax.set_xlabel('Frequency (MHz)')
+            ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
+        elif i == 11:
+            ax.set_xlabel('Frequency (MHz)')
+            ax.set_title('Central Pixel')
+        else:
+            ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
+
+    plt.savefig(fig_dir + '/plot_spectra.png', bbox_inches='tight')
+
+
+    # Plot mean and std of spectra vs. Continuum flux
+    fig2 = plt.figure(2, figsize=(6.4, 10.4))
+    fig2.subplots_adjust(top=0.94, bottom=0.12, hspace=0.2)
+    ax1 = fig2.add_subplot(311)
+    ax1.plot(f_int_all[-1], spec_mean[-1], '*', color='C0', ms=12, label='Mean (central pix)')
+    ax1.plot(f_int_all[:-1], spec_mean[:-1], 'o', color='C0', label='Mean')
+    ax1.plot(f_int_all[-1], spec_std[-1], '*', color='C1', ms=12, label='Std (central pix)')
+    ax1.plot(f_int_all[:-1], spec_std[:-1], 'o', color='C1', label='Std')
+    ax1.plot(f_int_all[mask_multi], spec_std[mask_multi], 'o', ms=13, mfc='None', mec='C2', label='Multi Comp')
+    [i.set_linewidth(1.2) for i in ax1.spines.values()]
+    ax1.set_xlabel('Continuum Source Flux (mJy)')
+    ax1.set_ylabel('Flux of Spectra (mJy)')
+    ax1.legend(ncol=3, bbox_to_anchor=(1.02, 1.25), loc='upper right')
+
+    # Plot mean, Std vs. Distance from the field centre
+    ax2 = fig2.add_subplot(312)
+    ax2.plot(dist_all[-1], spec_mean[-1], '*', color='C0', ms=12, label='Mean (central pix)')
+    ax2.plot(dist_all[:-1], spec_mean[:-1], 'o', color='C0', label='Mean')
+    ax2.plot(dist_all[-1], spec_std[-1], '*', color='C1', ms=12, label='Std (central pix)')
+    ax2.plot(dist_all[:-1], spec_std[:-1], 'o', color='C1', label='Std')
+    ax2.plot(dist_all[mask_multi], spec_std[mask_multi], 'o', ms=13, mfc='None', mec='C2')
+    [i.set_linewidth(1.2) for i in ax2.spines.values()]
+    ax2.set_xlabel('Distance from the Center (deg)')
+    ax2.set_ylabel('Flux of Spectra (mJy)')
+
+    # Plot RMS vs No. chans summed over
+    ax3 = fig2.add_subplot(313)
+    cmap2 = cm.rainbow_r(np.linspace(0, 1, spec_stats.shape[0]))
+    for i in range(spec_stats.shape[0]):
+        if i < (spec_stats.shape[0]-1):
+            ax3.plot(bins, spec_stats[i], 'o-', color=cmap2[i], label=f'{f_int_all[i]:.1f} mJy')
+        else:
+            ax3.plot(bins, spec_stats[i], 'o-', color='k', label='Central pix')
+            ax3.plot(bins, spec_stats[i][0]*np.sqrt(bins), '--', color='k')
+
+    ax3.set_xlabel('No. of Channels summed over')
+    ax3.set_ylabel('RMS (mJy/beam)')
+    ax3.set_xscale('log')
+    ax3.set_yscale('log')
+    [i.set_linewidth(1.2) for i in ax3.spines.values()]
+    ax3.legend(ncol=4, bbox_to_anchor=(0.5, -0.34), loc='center')
+    plt.savefig(fig_dir + '/plot_spectra_stats.png', bbox_inches='tight')
+
+
+    # Plot individual spectra extracted from brigtest continuum sources
+    # and central pixel and overlaid spectra summed with different bin sizes
+
+    fig3, axs = plt.subplots(6, 2, figsize=(10,12), constrained_layout=False)
+    fig3.subplots_adjust(top=0.95, left=0.08, right=0.95, bottom=0.08, hspace=0.35, wspace=0.15)
+    for i, ax in enumerate(axs.flat):
+        ax.plot(freq, spec[:,i], color=cmap[0], label=r'N$_{\rm sum}$=1')
+        ax.plot(freq_rebin['bin_size:4'], spec_rebin['bin_size:4'][:,i]/np.sqrt(4), color=cmap[1],     label=r'N$_{\rm sum}$=4')
+        ax.plot(freq_rebin['bin_size:16'], spec_rebin['bin_size:16'][:,i]/np.sqrt(16), color=cmap[2],     label=r'N$_{\rm sum}$=16')
+        ax.plot(freq_rebin['bin_size:64'], spec_rebin['bin_size:64'][:,i]/np.sqrt(64), color=cmap[3],     label=r'N$_{\rm sum}$=64')
+        ax.plot(freq_rebin['bin_size:256'], spec_rebin['bin_size:256'][:,i]/np.sqrt(256), color=cmap[4],     label=r'N$_{\rm sum}$=256')
+        ax.plot(freq_rebin['bin_size:1024'], spec_rebin['bin_size:1024'][:,i]/np.sqrt(1024), color=cmap[5],     label=r'N$_{\rm sum}$=1024')
+        y_min = np.nanmin(spec_rebin['bin_size:1024'][:,i])/np.sqrt(1024)
+        y_max = np.nanmax(spec_rebin['bin_size:1024'][:,i])/np.sqrt(1024)
+        y_lim = max(abs(y_min), abs(y_max)) + 5.0
+        ax.set_ylim(-y_lim, y_lim)
+
+        [i.set_linewidth(1.2) for i in ax.spines.values()]
+        if (i % 2 == 0) and (i < 10):
+            ax.set_ylabel('Flux (mJy/beam)')
+            ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
+        elif i == 10:
+            ax.set_ylabel('Flux (mJy/beam)')
+            ax.set_xlabel('Frequency (MHz)')
+            ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
+        elif i == 11:
+            ax.set_xlabel('Frequency (MHz)')
+            ax.set_title('Central Pixel')
+            leg = ax.legend(ncol=6, bbox_to_anchor=(-0.05, -0.45), loc='center')
+        else:
+            ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
+    fig3.suptitle('Total flux over block of N channels scaled by sqrt(N)', y=0.99, fontsize=14)
+    plt.savefig(fig_dir + '/plot_spectra_summed.png', bbox_inches='tight')
+    plt.close('all')
+
+
 
 ################################################################################
 # HTML related tasks
@@ -1174,7 +1494,7 @@ BEAM_EXP_RMS_B = cal_Beam_ExpRMS(FLAG_STAT_B, theoretical_rms[1])
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob(diagnostics_dir + '/cubestats-G23*/*linmos*.png'))  # Mosaic statistic
+cube_plots = sorted(glob(diagnostics_dir + '/cubestats-G*/*linmos*.png'))  # Mosaic statistic
 cube_plots_final = sorted(glob(diagnostics_dir + '/cubePlot*.png'))  # Final Mosaic statistic
 beamNoise_plots = sorted(glob(diagnostics_dir + '/beamNoise*.png'))  # beam-by-beam statistic
 beamMinMax_plots = sorted(glob(diagnostics_dir + '/beamMinMax*.png'))  # beam-by-beam statistic
@@ -1203,6 +1523,15 @@ for image in beamMinMax_plots:
     thumb_img = 'thumb_' + str(sizeX) + '_' + image.split('/')[-1]
     thumb_beamMinMax.append(thumb_img)
     make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
+
+if do_contsub_test:
+    contsub_plots = sorted(glob(fig_dir+'/plot_spectra*png'))
+    thumb_contsub_tests = []
+    for image in contsub_plots:
+        thumb_img = 'thumb_' + str(sizeX) + '_' + image.split('/')[-1]
+        thumb_contsub_tests.append(thumb_img)
+        make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
+
 
 # Measured MAD of Maximum Flux Density of each beam for different interleaves
 beam_MADMFD_fig_A, MADMFD_plot_A = BeamStat_plot('MADMFD', field_names[0])
@@ -1267,6 +1596,7 @@ make_Thumbnail(Flagged_fig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 Flagged_fig_B, Flagged_plot_B = FlagStat_plot(FLAG_STAT_B, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + Flagged_plot_B
 make_Thumbnail(Flagged_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
+
 
 
 ################################################################################
@@ -1619,6 +1949,37 @@ html.write("""</td>
                                n_bad_chan,
                                fig_dir.split('/')[-1] + '/' + mosaic_bad_chan))
 
+# Continuum Residaul test for Mosaic cube
+if do_contsub_test:
+    html.write("""</td>
+                        </tr>
+                        </table>
+                        <h2 align="middle">Continuum Residual Test***</h2>
+                        <table width="100%" border="1">
+                        <tr>
+                        <th>Spectra from Brightest Sources and Field Centre</th>
+                        <th>Statistics of Extracted Spectra and Spectra summed</th>
+                        <th>Spectra and their total flux over N channel summed</th>
+                        </tr>
+                        <tr align="middle">
+                        <td>
+                        <a href="{2}" target="_blank"><img src="{3}" width="{0}" height="{1}" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="{4}" target="_blank"><img src="{5}" width="{0}" height="{1}" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="{6}" target="_blank"><img src="{7}" width="{0}" height="{1}" alt="thumbnail"></a>
+                        </td>
+                        """.format(sizeX,
+                                   sizeY,
+                                   contsub_plots[0],
+                                   fig_dir.split('/')[-1] + '/' + thumb_contsub_tests[0],
+                                   contsub_plots[1],
+                                   fig_dir.split('/')[-1] + '/' + thumb_contsub_tests[1],
+                                   contsub_plots[2],
+                                   fig_dir.split('/')[-1] + '/' + thumb_contsub_tests[2]))
+
 # HIPASS soruces within the field observed
 html.write("""</td>
               </tr>
@@ -1641,7 +2002,8 @@ html.write("""
 
               <p align=left>
               * If more than one version of ASKAPsoft is used for the whole reduction, the latest one is reported.<br>
-              ** Does not take into account field rotation. <br>
+              ** Does not take into account field rotation.<br>
+              *** Using spectra extracted from brightest continuum sources and field center positions.<br>
               Generated at {0} <br>
               <i> Report bugs to
               <a href="mailto:jonghwan.rhee@uwa.edu.au">Jonghwan Rhee</a></i>
