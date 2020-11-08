@@ -1208,7 +1208,7 @@ parser = ArgumentParser(description='Run DINGO validation and produce an HTML re
 parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=int)
 parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
 parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 # Switch to run contsub test
 do_contsub_test = options.contsubTest
