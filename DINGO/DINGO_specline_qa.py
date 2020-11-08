@@ -1218,7 +1218,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob('slurmOutput/*.sh'))
-beamlogs_file = sorted(glob('./diagnostics/cubestats-G15_T0*/beamlog.image.restored.i.SB' + sbid + '.cube.G15_T0*beam00.txt'))
+beamlogs_file = sorted(glob('./diagnostics/cubestats-*/beamlog.image.restored.i.SB' + sbid + '.cube.*beam00.txt'))
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1249,7 +1249,7 @@ else:
     t_int.append(tobs_hr)
 
 # mosaic contsub statistic
-cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-G15*/cubeStats*linmos.contsub.txt'))
+cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-*/cubeStats*linmos.contsub.txt'))
 cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*cube.contsub.txt'))
 
 # get frequency information
