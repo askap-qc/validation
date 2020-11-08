@@ -612,7 +612,7 @@ def qc_BeamLogs(field):
     field: name of an interleaving field
     """
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/beamlog.image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/beamlog.image.restored.' + imagebase + field
     tolerance = [30 - 30 * 0.006, 30 + 30 * 0.006]
 
     QC_BEAMS_LABEL = []
@@ -664,7 +664,7 @@ def FlagStat_plot(FLAGSTAT, field):
     """
     # set inputs (path to inputs and output file names)
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     title = 'Flagged Data Fraction (' + field + ')'
     plot_name = 'FlagStat_' + field+ '.png'
@@ -837,7 +837,7 @@ def BeamStat_plot(item, field):
     """
 
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 10,
               'axes.titlesize': 10,
@@ -944,7 +944,7 @@ def NoiseRank_histplot(nchan, field):
     plot_name = 'beam_1pctile_hist_SB' + sbid + '_' + field + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 12,
               'axes.titlesize': 10,
@@ -1212,6 +1212,8 @@ fig_dir = 'Figures'
 sbid = sorted(glob('metadata/mslist-scienceData*txt'))[0].split('_')[1][2:]
 html_name = 'index.html'
 
+imagebase='i.SB'+sbid+'.cube.'
+
 if not os.path.isdir(fig_dir):
     os.system('mkdir -p ' + fig_dir)
 
@@ -1219,7 +1221,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob('slurmOutput/*.sh'))
-beamlogs_file = sorted(glob('./diagnostics/cubestats-*/beamlog.image.restored.i.SB' + sbid + '.cube.*beam00.txt'))
+beamlogs_file = sorted(glob('./diagnostics/cubestats-*/beamlog.image.restored.' + imagebase + '*beam00.txt'))
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1309,7 +1311,7 @@ if do_contsub_test:
 
     # Input files
     selavy_file = glob('./selavy-cont-image*restored/selavy-image*islands.xml')[0]
-    fitscube = glob('image.restored.i.SB' + sbid + '.cube.contsub.fits')[0]
+    fitscube = glob('image.restored.' + imagebase + 'contsub.fits')[0]
 
     # Read selavy continuum catalogue
     selavy_cat = parse_single_table(selavy_file).to_table(use_names_over_ids=True)
