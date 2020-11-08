@@ -1206,10 +1206,9 @@ do_contsub_test = True
 
 # Set file names and directories
 diagnostics_dir = os.getcwd() + '/diagnostics'
-qa_dir = os.getcwd() + '/validation_spectral'
-fig_dir = qa_dir + '/Figures'
+fig_dir = 'Figures'
 sbid = sorted(glob('metadata/mslist-scienceData*txt'))[0].split('_')[1][2:]
-html_name = qa_dir + '/spectral_report_SB' + sbid + '.html'
+html_name = 'index.html'
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir -p ' + fig_dir)
