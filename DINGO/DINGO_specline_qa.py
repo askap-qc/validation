@@ -1204,7 +1204,7 @@ def rebin_spec(x, y, bin_size, method):
 # ignore astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
 
-parser = argparse.ArgumentParser(description='Run DINGO validation and produce an HTML report')
+parser = ArgumentParser(description='Run DINGO validation and produce an HTML report')
 parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=int)
 parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
 parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
