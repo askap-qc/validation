@@ -65,6 +65,7 @@ import warnings
 import sys
 import os
 import re
+from argparse import ArgumentParser
 
 ################################################################################
 # Functions for the main program
@@ -1203,16 +1204,23 @@ def rebin_spec(x, y, bin_size, method):
 # ignore astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
 
+parser = argparse.ArgumentParser(description='Run DINGO validation and produce an HTML report')
+parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=int)
+parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
+parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
+(options, args) = parser.parse_args()
+
 # Switch to run contsub test
-do_contsub_test = True
+do_contsub_test = options.contsubTest
 
 # Set file names and directories
 diagnostics_dir = os.getcwd() + '/diagnostics'
 fig_dir = 'Figures'
-sbid = sorted(glob('metadata/mslist-scienceData*txt'))[0].split('_')[1][2:]
+sbid = options.sbid
 html_name = 'index.html'
 
-imagebase='i.SB'+sbid+'.cube.'
+imagebase=options.imagebase + '.'
+imagebase.replace('%s',f'{sbid}')
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir -p ' + fig_dir)
