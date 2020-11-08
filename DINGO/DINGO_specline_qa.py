@@ -682,7 +682,7 @@ def FlagStat_plot(FLAGSTAT, field):
 
     for i in range(36):
         x0, y0 = offsets[i]
-        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20b', ec='k', vmin=0, vmax=100)
+        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20b', edgecolors='k', vmin=0, vmax=100)
         plt.text(x0, y0, '%d'%i, fontsize=12, va='center', ha='center')
 
     [i.set_linewidth(1.5) for i in ax.spines.values()]
@@ -799,7 +799,7 @@ def BeamLogs_QCplot(list_beams_id_label, field):
         else:
             color_code = '#df2525'
 
-        plt.scatter(x0, y0, s=1500, c=color_code, ec='k')
+        plt.scatter(x0, y0, s=1500, c=color_code, edgecolors='k')
         plt.text(x0, y0, '%d'%i, fontsize=12, va='center', ha='center')
 
     for key in legend_dict:
