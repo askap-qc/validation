@@ -63,6 +63,8 @@ import sys
 import os
 import re
 
+import matplotlib as mpl
+mpl.use('Agg')
 
 ################################################################################
 # Functions for the main program
