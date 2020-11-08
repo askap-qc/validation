@@ -228,7 +228,7 @@ def get_HIPASS(pos_cen, dRA, dDec):
     hipass_cat = 'hipass.txt'
     #hipass_result['VIII/73/hicat'].write(fig_dir + '/' + hipass_cat, format='ascii.fixed_width', delimiter=' ')
     with open(fig_dir + '/' + hipass_cat, 'w') as f:
-        print(hipass_result[0], file=f)
+        print(hipass_result['VIII/73/hicat'], file=f)
 
     return hipass_cat
 
