@@ -933,7 +933,7 @@ warnings.simplefilter('ignore', AstropyWarning)
 fig_dir = 'Figures'
 sbid = str(sys.argv[1])
 n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16] # beam number
-html_name = 'spectral_report_SB' + sbid + '.html'
+html_name = 'index.html'
 diagnostics_dir = 'diagnostics'
 
 if not os.path.isdir(fig_dir):
