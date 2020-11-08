@@ -116,7 +116,7 @@ def get_HIPASS(ra, dec):
     print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
     
     Vizier.ROW_LIMIT = -1
-    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat')
+    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat', timeout=1000)
 
     TOKS_RA = ra.split(":")
     ra_hr = float(TOKS_RA[0])
