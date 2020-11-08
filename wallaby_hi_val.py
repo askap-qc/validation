@@ -200,14 +200,15 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
         for line in f:
             if "#" not in line:  # grep -v "#"
                 if "Flagged" not in line:   # grep -v "Flagged"
-                    TOKS=line.split()       
-                    ant1 = int(TOKS[3])
-                    ant2 = int(TOKS[4])
-                    flag = float(TOKS[6])
-                    if (ant1 < ant2) and (flag == 100): # extract non-correlated antenna pairs with 100 percent flagging
-                        ANT1.append(ant1)
-                        ANT2.append(ant2)
-                        FLAG.append(flag)
+                    if len(line.split())>2:  # avoid new channel-wise summaries at end of flagSummary file
+                        TOKS=line.split()
+                        ant1 = int(TOKS[3])
+                        ant2 = int(TOKS[4])
+                        flag = float(TOKS[6])
+                        if (ant1 < ant2) and (flag == 100): # extract non-correlated antenna pairs with 100 percent flagging
+                            ANT1.append(ant1)
+                            ANT2.append(ant2)
+                            FLAG.append(flag)
 
     ant1, ant2, flag = np.asarray(ANT1), np.asarray(ANT2), np.asarray(FLAG)
     
