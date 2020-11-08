@@ -1229,7 +1229,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob('slurmOutput/*.sh'))
-beamlogs_file = sorted(glob('./diagnostics/cubestats-*/beamlog.image.restored.' + imagebase + '*beam00.txt'))
+beamlogs_file = sorted(glob('diagnostics/cubestats-*/beamlog*beam00.txt'))
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
