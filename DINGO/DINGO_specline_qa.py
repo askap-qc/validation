@@ -1214,7 +1214,7 @@ options = parser.parse_args()
 do_contsub_test = options.contsubTest
 
 # Set file names and directories
-diagnostics_dir = os.getcwd() + '/diagnostics'
+diagnostics_dir = 'diagnostics'
 fig_dir = 'Figures'
 sbid = options.sbid
 html_name = 'index.html'
