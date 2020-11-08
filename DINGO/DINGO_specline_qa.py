@@ -46,6 +46,9 @@ from scipy.optimize import curve_fit
 from scipy.stats import iqr
 import numpy as np
 
+import matplotlib as mpl
+mpl.use('Agg')
+
 from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
@@ -62,9 +65,6 @@ import warnings
 import sys
 import os
 import re
-
-import matplotlib as mpl
-mpl.use('Agg')
 
 ################################################################################
 # Functions for the main program
