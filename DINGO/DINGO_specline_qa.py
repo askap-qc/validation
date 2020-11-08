@@ -1205,7 +1205,7 @@ def rebin_spec(x, y, bin_size, method):
 warnings.simplefilter('ignore', AstropyWarning)
 
 parser = ArgumentParser(description='Run DINGO validation and produce an HTML report')
-parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=int)
+parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=str)
 parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
 parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
 options = parser.parse_args()
@@ -1220,7 +1220,7 @@ sbid = options.sbid
 html_name = 'index.html'
 
 imagebase=options.imagebase + '.'
-imagebase.replace('%s',f'{sbid}')
+imagebase=imagebase.replace('%s',sbid)
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir -p ' + fig_dir)
