@@ -46,6 +46,9 @@ from scipy.optimize import curve_fit
 from scipy.stats import iqr
 import numpy as np
 
+import matplotlib as mpl
+mpl.use('Agg')
+
 from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
@@ -62,7 +65,7 @@ import warnings
 import sys
 import os
 import re
-
+from argparse import ArgumentParser
 
 ################################################################################
 # Functions for the main program
@@ -218,14 +221,14 @@ def get_HIPASS(pos_cen, dRA, dDec):
     print("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while....")
 
     Vizier.ROW_LIMIT = -1
-    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog='VIII/73/hicat')
+    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog='VIII/73/hicat', timeout=1000)
 
     hipass_result = v.query_region(SkyCoord(ra=pos_cen[0], dec=pos_cen[1], unit=(u.deg, u.deg), frame='icrs'), width=[dRA * u.deg], height=[dDec * u.deg])
 
     hipass_cat = 'hipass.txt'
     #hipass_result['VIII/73/hicat'].write(fig_dir + '/' + hipass_cat, format='ascii.fixed_width', delimiter=' ')
     with open(fig_dir + '/' + hipass_cat, 'w') as f:
-        print(hipass_result[0], file=f)
+        print(hipass_result['VIII/73/hicat'], file=f)
 
     return hipass_cat
 
@@ -610,7 +613,7 @@ def qc_BeamLogs(field):
     field: name of an interleaving field
     """
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/beamlog.image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/beamlog.image.restored.' + imagebase + field
     tolerance = [30 - 30 * 0.006, 30 + 30 * 0.006]
 
     QC_BEAMS_LABEL = []
@@ -662,7 +665,7 @@ def FlagStat_plot(FLAGSTAT, field):
     """
     # set inputs (path to inputs and output file names)
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     title = 'Flagged Data Fraction (' + field + ')'
     plot_name = 'FlagStat_' + field+ '.png'
@@ -682,7 +685,7 @@ def FlagStat_plot(FLAGSTAT, field):
 
     for i in range(36):
         x0, y0 = offsets[i]
-        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20b', ec='k', vmin=0, vmax=100)
+        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20b', edgecolors='k', vmin=0, vmax=100)
         plt.text(x0, y0, '%d'%i, fontsize=12, va='center', ha='center')
 
     [i.set_linewidth(1.5) for i in ax.spines.values()]
@@ -799,7 +802,7 @@ def BeamLogs_QCplot(list_beams_id_label, field):
         else:
             color_code = '#df2525'
 
-        plt.scatter(x0, y0, s=1500, c=color_code, ec='k')
+        plt.scatter(x0, y0, s=1500, c=color_code, edgecolors='k')
         plt.text(x0, y0, '%d'%i, fontsize=12, va='center', ha='center')
 
     for key in legend_dict:
@@ -835,7 +838,7 @@ def BeamStat_plot(item, field):
     """
 
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 10,
               'axes.titlesize': 10,
@@ -942,7 +945,7 @@ def NoiseRank_histplot(nchan, field):
     plot_name = 'beam_1pctile_hist_SB' + sbid + '_' + field + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 12,
               'axes.titlesize': 10,
@@ -1201,15 +1204,23 @@ def rebin_spec(x, y, bin_size, method):
 # ignore astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
 
+parser = ArgumentParser(description='Run DINGO validation and produce an HTML report')
+parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=str)
+parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
+parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
+options = parser.parse_args()
+
 # Switch to run contsub test
-do_contsub_test = True
+do_contsub_test = options.contsubTest
 
 # Set file names and directories
-diagnostics_dir = os.getcwd() + '/diagnostics'
-qa_dir = os.getcwd() + '/validation_spectral'
-fig_dir = qa_dir + '/Figures'
-sbid = sorted(glob('metadata/mslist-scienceData*txt'))[0].split('_')[1][2:]
-html_name = qa_dir + '/spectral_report_SB' + sbid + '.html'
+diagnostics_dir = 'diagnostics'
+fig_dir = 'Figures'
+sbid = options.sbid
+html_name = 'index.html'
+
+imagebase=options.imagebase + '.'
+imagebase=imagebase.replace('%s',sbid)
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir -p ' + fig_dir)
@@ -1218,7 +1229,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob('slurmOutput/*.sh'))
-beamlogs_file = sorted(glob('./diagnostics/cubestats-G15_T0*/beamlog.image.restored.i.SB' + sbid + '.cube.G15_T0*beam00.txt'))
+beamlogs_file = sorted(glob('diagnostics/cubestats-*/beamlog*beam00.txt'))
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1249,7 +1260,7 @@ else:
     t_int.append(tobs_hr)
 
 # mosaic contsub statistic
-cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-G15*/cubeStats*linmos.contsub.txt'))
+cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-*/cubeStats*linmos.contsub.txt'))
 cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*cube.contsub.txt'))
 
 # get frequency information
@@ -1308,7 +1319,7 @@ if do_contsub_test:
 
     # Input files
     selavy_file = glob('./selavy-cont-image*restored/selavy-image*islands.xml')[0]
-    fitscube = glob('image.restored.i.SB' + sbid + '.cube.contsub.fits')[0]
+    fitscube = glob('image.restored.' + imagebase + 'contsub.fits')[0]
 
     # Read selavy continuum catalogue
     selavy_cat = parse_single_table(selavy_file).to_table(use_names_over_ids=True)
