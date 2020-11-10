@@ -53,13 +53,13 @@ from numpy import inf
 from scipy import asarray as ar,exp
 from astroquery.vizier import Vizier
 
+from argparse import ArgumentParser
+
 # This step is necessary to avoid matplotlib using the Xwindows backend. 
 # Otherwise, it does not work on galaxy. 
 
 import matplotlib as mpl
-if os.environ.get('DISPLAY','') == '':
-    print('No display is found. Using the non-interactive Agg backend.')
-    mpl.use('Agg')
+mpl.use('Agg')
 import matplotlib.pyplot as plt 
 import matplotlib.pylab as pylab
 import matplotlib.patches as mpatches
@@ -116,7 +116,7 @@ def get_HIPASS(ra, dec):
     print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
     
     Vizier.ROW_LIMIT = -1
-    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat')
+    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat', timeout=1000)
 
     TOKS_RA = ra.split(":")
     ra_hr = float(TOKS_RA[0])
@@ -183,7 +183,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
     Getting flagging statistics and finding out beam-by-beam antenna based (completely) flagging. 
     """
 
-    line = subprocess.check_output(['tail', '-1', flagging_file]) #Grab the last line
+    line = subprocess.check_output(['grep','Flagged', flagging_file]) # grab the summary line
     str_line = line.decode('utf-8')
     TOKS = str_line.split()
     total_flagged_pct = float(TOKS[-2]) #data+autocorrelation
@@ -200,14 +200,15 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
         for line in f:
             if "#" not in line:  # grep -v "#"
                 if "Flagged" not in line:   # grep -v "Flagged"
-                    TOKS=line.split()       
-                    ant1 = int(TOKS[3])
-                    ant2 = int(TOKS[4])
-                    flag = float(TOKS[6])
-                    if (ant1 < ant2) and (flag == 100): # extract non-correlated antenna pairs with 100 percent flagging
-                        ANT1.append(ant1)
-                        ANT2.append(ant2)
-                        FLAG.append(flag)
+                    if len(line.split())>2:  # avoid new channel-wise summaries at end of flagSummary file
+                        TOKS=line.split()
+                        ant1 = int(TOKS[3])
+                        ant2 = int(TOKS[4])
+                        flag = float(TOKS[6])
+                        if (ant1 < ant2) and (flag == 100): # extract non-correlated antenna pairs with 100 percent flagging
+                            ANT1.append(ant1)
+                            ANT2.append(ant2)
+                            FLAG.append(flag)
 
     ant1, ant2, flag = np.asarray(ANT1), np.asarray(ANT2), np.asarray(FLAG)
     
@@ -420,7 +421,7 @@ def qc_BeamLogs():
     """
     
     file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.i.SB'+ sbid + '.cube.'+ field
+    basename = '/beamlog.image.restored.' + imagebase + field
     QC_BEAMS_LABEL = []
     
     for i in range(0,36):
@@ -540,7 +541,7 @@ def FlagStat_plot(FLAGSTAT, n):
     """
 
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field  
+    basename = '/cubeStats-image.restored.' + imagebase + field  
     
     title = 'Flagged Fraction'
     plot_name = 'FlagStat.png'
@@ -718,7 +719,7 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
@@ -874,7 +875,7 @@ def BeamStat_plot(item, n):
     Plotting and visualising statistics of 36 beams. 
     """
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field  
+    basename = '/cubeStats-image.restored.' + imagebase + field  
 
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
@@ -929,11 +930,21 @@ def BeamStat_plot(item, n):
 #ignore astropy warnings 
 warnings.simplefilter('ignore', AstropyWarning)   
 
+parser = ArgumentParser(description='Run WALLABY validation and produce an HTML report')
+parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=str)
+parser.add_argument('-c','--cal_sbid', dest='cal_sbid',required='true',help='Calibrator SBID',type=str)
+parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
+options = parser.parse_args()
+
 fig_dir = 'Figures'
-sbid = str(sys.argv[1])
+sbid = options.sbid
+cal_sbid = options.cal_sbid
 n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16] # beam number
-html_name = 'spectral_report_SB' + sbid + '.html'
+html_name = 'index.html'
 diagnostics_dir = 'diagnostics'
+
+imagebase=options.imagebase+'.'
+imagebase=imagebase.replace('%s',sbid)
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir '+ fig_dir)
@@ -942,9 +953,8 @@ if not os.path.isdir(fig_dir):
 
 metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
-metafile_cal = sorted(glob.glob('metadata/mslist-cal*txt'))[0]
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
-fitsimage = ('image.restored.i.SB' + sbid + '.cube.contsub.fits')
+fitsimage = ('image.restored.'+ imagebase + 'contsub.fits')
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -970,7 +980,6 @@ askapsoft = get_Version(param)
 chan_width, cfreq, nchan = get_Metadata_freq(metafile_science)
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
-cal_sbid = metafile_cal[27:32]
 
 cubestat_linmos_contsub = glob.glob(diagnostics_dir+ '/cubestats-' + field + '/cubeStats*linmos.contsub.txt')[0] #mosaic contsub statistic
 
