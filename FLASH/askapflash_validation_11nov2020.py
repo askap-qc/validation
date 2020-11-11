@@ -1116,8 +1116,8 @@ mad_rms, med_rms = cal_mosaic_Stats(cubestat_linmos_contsub)
 n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsub, mad_rms, med_rms)
 QC_mdata_id, QC_mdata_keyword = qc_Missing_Data(cubestat_linmos_contsub)
 
-#first_cat = get_FIRST(ra, dec)
-#nvss_cat = get_NVSS(ra, dec)
+first_cat = get_FIRST(ra, dec)
+nvss_cat = get_NVSS(ra, dec)
 #hipass_cat = get_HIPASS(ra, dec)
 
 # Check if flagging statistic file is available. Earlier ASKAPSoft run did not include the file.
