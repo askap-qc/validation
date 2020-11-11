@@ -1,4 +1,4 @@
-# ASKAP-FLASH data validation script
+# FLASH data validation
 
 11 Nov 2020, written by Hyein Yoon
 
