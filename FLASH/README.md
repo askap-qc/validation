@@ -4,7 +4,7 @@
 
 - Please visit the link to see the validation output reports from individual SBIDs: https://github.com/hyeinyoon/askapflash-validation
 
-- At this stage, this validation script just focuses on a successful/efficient run and showes what kind of plots are currently included for validation.
+- At this stage, this validation script just focuses on a successful/efficient run and shows what kind of plots are currently included.
 
 - As there are missing askapsoft outputs to run the script completely now, some dummy data/plots are used.
 
