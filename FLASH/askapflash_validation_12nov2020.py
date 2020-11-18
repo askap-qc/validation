@@ -66,6 +66,7 @@ from numpy import inf
 from scipy import asarray as ar,exp
 from astroquery.vizier import Vizier
 
+from argparse import ArgumentParser
 
 # This step is necessary to avoid matplotlib using the Xwindows backend. 
 # Otherwise, it does not work on galaxy. 
@@ -1061,8 +1062,16 @@ def plot(infile, x, y, c=None, yerr=None, figure=None, arrows=None, xlabel='', y
 #ignore astropy warnings 
 warnings.simplefilter('ignore', AstropyWarning)   
 
+parser = ArgumentParser(description='Run FLASH validation and produce an HTML report')
+parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=str)
+parser.add_argument('-c','--cal_sbid', dest='cal_sbid',required='true',help='Calibrator SBID',type=str)
+parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
+options = parser.parse_args()
+
 fig_dir = 'Figures'
-sbid = str(sys.argv[1]) # or, sbid=str(10250)
+sbid = options.sbid
+cal_sbid = options.cal_sbid
+
 n = [26,25,24,23,22,21,27,10,9,8,7,20,28,11,3,1,6,19,29,12,2,0,5,18,30,13,14,15,4,17,31,32,33,34,35,16] # beam number
 #n = [0] # test with one beam - FLASH
 
@@ -1070,7 +1079,8 @@ html_name = 'index.html'
 
 diagnostics_dir = 'diagnostics'
 
-imagebase = 'i.SB' + sbid + '.cube'
+imagebase = options.imagebase
+imagebase = imagebase.replace('%s',sbid)
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir '+ fig_dir)
@@ -1079,7 +1089,6 @@ if not os.path.isdir(fig_dir):
 
 metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
-metafile_cal = sorted(glob.glob('metadata/mslist-cal*txt'))[0]
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
 fitsimage = ('image.restored.' + imagebase + '.contsub.fits')
 
@@ -1107,7 +1116,6 @@ askapsoft = get_Version(param)
 chan_width, cfreq, nchan = get_Metadata_freq(metafile_science)
 tobs_hr = round(tobs/3600.,2) # convert tobs from second to hr
 chan_width_kHz = round(chan_width/1000.,3) # convert Hz to kHz
-cal_sbid = metafile_cal[27:31]
 
 cubestat_linmos_contsub = glob.glob(diagnostics_dir+ '/cubestats-' + field + '/cubeStats*linmos.contsub.txt')[0] #mosaic contsub statistic
 
