@@ -269,7 +269,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
     Getting flagging statistics and finding out beam-by-beam antenna based (completely) flagging. 
     """
 
-    line = subprocess.check_output(['tail', '-1', flagging_file]) #Grab the last line
+    line = subprocess.check_output(['grep','Flagged', flagging_file]) # grab the summary line
     str_line = line.decode('utf-8')
     TOKS = str_line.split()
     total_flagged_pct = float(TOKS[-2]) #data+autocorrelation
