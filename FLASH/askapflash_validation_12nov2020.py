@@ -136,7 +136,7 @@ def get_FIRST(ra, dec):
     
 #   Vizier.ROW_LIMIT = 1000 # Note: it doesn't work!
 #   v = Vizier(columns=['FIRST', '_RAJ2000', '_DEJ2000', 'p(S)', 'Fpeak', 'Fint', 'Maj', 'Min'], catalog = 'VIII/92/first14')
-    v = Vizier(columns=['all'], catalog = 'VIII/92/first14')
+    v = Vizier(columns=['all'], catalog = 'VIII/92/first14', timeout=1000)
     Vizier.ROW_LIMIT = -1
 
     TOKS_RA = ra.split(":")
