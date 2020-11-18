@@ -523,7 +523,7 @@ def qc_BeamLogs():
 #    field: name of an interleaving field
     
     file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.i.SB'+ sbid + '.cube.'+ field
+    basename = '/beamlog.image.restored.' + imagebase + field
     tolerance = [30 - 30 * 0.006, 30 + 30 * 0.006]
 
     QC_BEAMS_LABEL = []
@@ -648,7 +648,7 @@ def FlagStat_plot(FLAGSTAT, n):
     """
 
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field  
+    basename = '/cubeStats-image.restored.' + imagebase + field  
     
     title = 'Flagged Fraction'
     plot_name = 'FlagStat.png'
@@ -837,7 +837,7 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
@@ -993,7 +993,7 @@ def BeamStat_plot(item, n):
     Plotting and visualising statistics of 36 beams. 
     """
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.i.SB'+ sbid +'.cube.'+ field  
+    basename = '/cubeStats-image.restored.' + imagebase + field  
 
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
@@ -1072,6 +1072,8 @@ html_name = 'index.html'
 
 diagnostics_dir = 'diagnostics'
 
+imagebase = 'i.SB' + sbid + '.cube'
+
 if not os.path.isdir(fig_dir):
     os.system('mkdir '+ fig_dir)
 
@@ -1081,7 +1083,7 @@ metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
 metafile_cal = sorted(glob.glob('metadata/mslist-cal*txt'))[0]
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
-fitsimage = ('image.restored.i.SB' + sbid + '.cube.contsub.fits')
+fitsimage = ('image.restored.' + imagebase + '.contsub.fits')
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
