@@ -71,9 +71,7 @@ from astroquery.vizier import Vizier
 # Otherwise, it does not work on galaxy. 
 
 import matplotlib as mpl
-if os.environ.get('DISPLAY','') == '':
-    print('No display is found. Using the non-interactive Agg backend.')
-    mpl.use('Agg')
+mpl.use('Agg')
 import matplotlib.pyplot as plt 
 #        else:
 #            beamstat = 0.5
