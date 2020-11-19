@@ -1,0 +1,445 @@
+<!DOCTYPE HTML>
+              <html>
+                    <head>
+                    <style>
+                  body {
+                        background-color: white;
+                  }
+                  h1 {
+                      color: black;
+                  }
+                  h4 {
+                      color: black;
+                  }
+                  p {
+                     color: black;
+                  }
+                  th, td {
+                         padding: 5px;
+                  }
+                  table {
+                         width: "100%";
+                         border: "1";
+                         border-spacing: 2px;
+                  }
+                  img {
+                       border: 1px solid #ddd; /* Gray border */
+                       border-radius: 4px;
+                       padding: 5px;
+                  }
+                  #good {
+                         background-color:#00FF00;
+                  }
+
+                  #ok {
+                         background-color:#FFD700;
+                  }
+                  #bad {
+                         background-color:#CD5C5C;
+                  }
+                  </style>
+                    </head>
+                    <body>
+                    <center>
+                    <title>ASKAP FLASH Spectral Line Data Validation Report</title>
+                    <table width="100%" border="0">
+                    <tr>
+                        <th style="width:220"><img style="border:none;" src="" width="220" align="center"></th>
+                        <th><h1 align="center"><font color="red">FLASH</font> Spectral Line Data Validation Report</h1>
+                    	<h4 align="center">Last modified: 12-Nov-2020 by Hyein Yoon<br>
+			<font color="black">Original script for WALLABY: 24-Mar-2020 by Bi-Qing For (ICRAR/UWA)</font></h4></th>
+                   	<th style="width:220"><img style="border:none;" src="" width="220" align="center"></th>
+		    </tr></table>
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">Notes for FLASH:
+		<br>- This tool uses ASKAPsoft products. FITS-datacubes are needed for getting major and minor beam sizes only (from the header). 
+		<br>- Not all data are availble, so some dummy files were used to run the script successfully.                
+		<br>- 1) Combining all info from spectra + continuum  
+		<br>- 2) Any other additional items to be required?
+		<br><br></h4>
+              </p><h2 align="middle">Observation</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>SBID</th>
+                        <th>No. of Antennas</th>
+                        <th>Obs Start Date/Time</th>
+                        <th>Obs End Date/Time</th>   
+                        <th>Duration<br>(hr)</th>
+                        <th>Field</th>
+                        <th>R.A.</th>
+                        <th>Decl.</th>
+                        <th>Total Bandwidth <br>(MHz)</th>
+                    </tr>
+                    <tr align="middle">
+                        <td>13293</td>
+                        <td>36</td>
+                        <td>19-Apr-2020/08:29:22.1</td>
+                        <td>19-Apr-2020/14:29:30.7</td>
+                        <td>6.0</td>
+                        <td>FLASH_G9A_long</td>
+                        <td>08:47:35.5</td>
+                        <td>+00.30.00.0</td>
+                        <td>288.0
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- col 1: from input by user
+		<br>- col 2-8: from ./metadata/mslist-<date>*.txt
+		<br>- col 9: from ./metadata/mslist-Science*.txt
+		</h4>
+              </p></td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Processed Image Cube</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>ASKAPsoft<br>version*</th>
+                        <th>Cal SBID</th>
+                        <th>Frequency Range<br>(MHz)</th>
+                        <th>Central Frequency<br>(MHz)</th>
+                        <th>Channel Width<br>(kHz)</th>
+                        <th>Synthesised Beam<br>(arcsec x arcsec)</th>
+                        <th>Beam Logs</th>
+                        <th>Flagged Visibilities</th>
+                        <th>Flagged Antennas</th>
+                        <th>Expected RMS</th>
+                    </tr>
+                    <tr align="middle">
+                        <td>2020-10-09T04:21:48</td>
+                        <td>1329</td>
+                        <td>711.5--999.481</td>
+                        <td>855.4907</td>
+                        <td>18.519</td>
+                        <td>30x30</td>
+                        <td>
+                        <a href="Figures/beamlogs_qc_SB13293.png" target="_blank"><img src="Figures/thumb_70_beamlogs_qc_SB13293.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="Figures/FlagStat.png" target="_blank"><img src="Figures/thumb_70_FlagStat.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="Figures/FlagAnt.png" target="_blank"><img src="Figures/thumb_70_FlagAnt.png" width="70" height="70" alt="thumbnail"></a>
+                          <form action="Figures/flagged_antenna.txt" method="get" target="_blank">
+                          <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
+                        </td>
+                        <td>
+                        <a href="Figures/Exp_RMS.png" target="_blank"><img src="Figures/thumb_70_Exp_RMS.png" width="70" height="70" alt="thumbnail"></a>
+                        
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- col 1: from ./slurmOutput/*.sh - if more than one version of ASKAPsoft is used for the whole reduction, the latest one is reported.
+	  	<br>- col 2: from ./diagnostics/cubestats-/cubeStats*linmos.contsub.txt (mosaic contsub)
+		<br>- col 3-4: from ./metadata/mslist-Science*.txt
+		<br>- col 5: from FITS-datacube (CURRENT VERSION: continuum subtracted beam00 cube - Nov 22 ver.; too large beam size? depending on robust parameter?)
+		<br>- col 6: from ./SpectralCube_BeamLogs/beamlogs*.txt
+		<br>- col 6: Bi-qing's notes: Evaluating each channel of each beam if ASKAPSoft fails to synthesize the beam, bmaj and bmin to 30 arcsec. bmaj and bmin for the first few channels are always zero.
+		<br>- col 7: from ./flagSummary/*.flagSummary
+		<br>- col 8: from ./flagSummary/*.flagSummary (flagged fraction) + theoretical rms estimation (based on input values)		
+		</h4> 
+              </p></td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Beams Statistics</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Beam Image Cube</th>          
+                    <th>Continuum Subtracted Beam Cube</th>
+                    <th>Residual Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/beamMinMax_image.restored.i.SB13293.cube.FLASH_G9A_long.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_image.restored.i.SB13293.cube.FLASH_G9A_long.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamMinMax_image.restored.i.SB13293.cube.FLASH_G9A_long.contsub.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_image.restored.i.SB13293.cube.FLASH_G9A_long.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamMinMax_residual.i.SB13293.cube.FLASH_G9A_long.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_residual.i.SB13293.cube.FLASH_G9A_long.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</p>
+                    </td>
+                    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/beamNoise_image.restored.i.SB13293.cube.FLASH_G9A_long.png" target="_blank"><img src="Figures/thumb_70_beamNoise_image.restored.i.SB13293.cube.FLASH_G9A_long.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamNoise_image.restored.i.SB13293.cube.FLASH_G9A_long.contsub.png" target="_blank"><img src="Figures/thumb_70_beamNoise_image.restored.i.SB13293.cube.FLASH_G9A_long.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamNoise_residual.i.SB13293.cube.FLASH_G9A_long.png" target="_blank"><img src="Figures/thumb_70_beamNoise_residual.i.SB13293.cube.FLASH_G9A_long.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- col 1-3: from beamMinMax Plots 
+		<br>- why one percentile?</h4>
+              </p></td>
+                    </tr>
+                    </table>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th colspan="4">Continuum Subtracted Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="Figures/beamStat_MADMFD.png" target="_blank"><img src="Figures/thumb_70_beamStat_MADMFD.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>MAD Max Flux Density</p>
+                    </td>
+                    <td>
+                    <a href="Figures/beam_1pctile_hist_SB13293.png" target="_blank"><img src="Figures/thumb_70_beam_1pctile_hist_SB13293.png" width="70" height="70" alt="thumbnail"></a>
+                    <a href="Figures/beam_1pctile_qc_SB13293.png" target="_blank"><img src="Figures/thumb_70_beam_1pctile_qc_SB13293.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>1-percentile noise rank</p>
+                    
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- col 1: from beamMinMax Plots 
+	 	<br>- col 2: from CubeStat*contsub.txt</h4>
+              </p></td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Mosaic Statistics</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Image Cube</th>          
+                    <th>Continuum Subtracted Cube</th>
+                    <th>Residual Cube</th>
+                    <th>Number of Bad Channel</th>
+                    <th>Missing Data <br>(Channel)</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/cubestats-FLASH_G9A_long/cubePlot-image.restored.i.SB13293.cube.FLASH_G9A_long.linmos.png" target="_blank"><img src="Figures/thumb_70_cubePlot-image.restored.i.SB13293.cube.FLASH_G9A_long.linmos.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="diagnostics/cubestats-FLASH_G9A_long/cubePlot-image.restored.i.SB13293.cube.FLASH_G9A_long.linmos.contsub.png" target="_blank"><img src="Figures/thumb_70_cubePlot-image.restored.i.SB13293.cube.FLASH_G9A_long.linmos.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="diagnostics/cubestats-FLASH_G9A_long/cubePlot-residual.i.SB13293.cube.FLASH_G9A_long.linmos.png" target="_blank"><img src="Figures/thumb_70_cubePlot-residual.i.SB13293.cube.FLASH_G9A_long.linmos.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td id='bad'>4340
+                    <form action="Figures/mosaic_badchans.txt" method="get" target="_blank">
+                     <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
+                    </form>
+                    <td id='ok'>Yes < 100, n= 7
+                    
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- col 1-3: from cubePlots
+	      <br>- col 4: from CubeStat*contsub.txt</h4>
+              </p></td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Source and Noise Spectra from five bright components</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Component 01a</th>          
+                    <th>Component 01b</th>
+                    <th>Component 02a</th>
+                    <th>Component 03a</th>
+                    <th>Component 03b</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="../Source_spectra/SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_1a.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p></p>
+		    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_1b.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p></p>
+		    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_1b.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p></p>
+		    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_2a.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p></p>
+                    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_2a.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p></p>
+	            </td>
+<tr align="middle">
+                    <td>
+                    <a href="../Source_spectra/SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_1a.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>10/33 chunks > 5-sigma</p>
+		    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_1b.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>13/33 chunks > 5-sigma</p>
+		    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_1b.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>13/33 chunks > 5-sigma</p>
+		    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_2a.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>9/33 chunks > 5-sigma</p>
+                    </td>
+                    <td>
+                    <a href="SB13293_component_1a.png" target="_blank"><img src="./Source_spectra/SB13293_component_2a.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>11/33 chunks > 5-sigma</p>
+	            </td>
+
+                    
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- Spectra toward five brightest components
+              <br>- Deviation from noise spectra (9 MHz chunks)
+	      </h4>
+              </p></td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Median noise flux density - noise Spectra</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Low frequency (first 5,000 channels)</th>          
+                    <th>High frequency (last 5,000 channels)</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="noisecolor_vs_radecoffset_sb13375_lowfreq.png" target="_blank"><img src="Figures/noisecolor_vs_radecoffset_sb13375_lowfreq.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>199 component (outside 3.2 deg)</p>
+                    </td>
+                    <td>
+                    <a href="noisecolor_vs_radecoffset_sb13375_highfreq.png" target="_blank"><img src="Figures/noisecolor_vs_radecoffset_sb13375_highfreq.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>139 component (outside 3.2 deg)</p>
+                    </td>
+                    <tr align="middle">
+                    <td>
+                    <a href="noise_vs_raoffset_outliers_sb13375_lowfreq.png" target="_blank"><img src="Figures/noise_vs_raoffset_outliers_sb13375_lowfreq.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>RA offset (red points: outside 3.2 deg)</p>
+                    </td>
+                    <td>
+                    <a href="noise_vs_raoffset_outliers_sb13375_highfreq.png" target="_blank"><img src="Figures/noise_vs_raoffset_outliers_sb13375_highfreq.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>RA offset (red points: outside 3.2 deg)</p>
+                    </td>
+                    <tr align="middle">
+                    <td>
+                    <a href="noise_vs_decoffset_outliers_sb13375_lowfreq.png" target="_blank"><img src="Figures/noise_vs_decoffset_outliers_sb13375_lowfreq.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>DEC offset (red points: outside 3.2 deg)</p>
+                    </td>
+                    <td>
+                    <a href="noise_vs_decoffset_outliers_sb13375_highfreq.png" target="_blank"><img src="Figures/noise_vs_decoffset_outliers_sb13375_highfreq.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>DEC offset (red points: outside 3.2 deg)</p>
+                    
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- Mean noise flux density - noise spectra 
+		<br>- stable out to 3.2 degree</h4>
+              </p></td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Continuum - comparison with NVSS</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Continuum image</th>          
+                    <th>Statistics</th>
+                    <th>RA/DEC offset</th>
+                    <th>Flux comparison</th>
+                    <th>Flux vs distance from image centre</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="nvss_askap_components_sb10250.png" target="_blank"><img src="Figures/nvss_askap_components_sb10250.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="continuum_statitiscs.png" target="_blank"><img src="Figures/continuum_statitiscs.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="crossmatch_ra_dec_offset_sb10849.png" target="_blank"><img src="Figures/crossmatch_ra_dec_offset_sb10849.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="crossmatch_flux_ratio_sb10849.png" target="_blank"><img src="Figures/crossmatch_flux_ratio_sb10849.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="crossmatch_flux_vs_image_center_sb10849.png" target="_blank"><img src="Figures/crossmatch_flux_vs_image_center_sb10849.png" width="70" height="70" alt="thumbnail"></a>
+                    
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- col 1: continuum image + selavy bright componenets
+	      <br>- col 2: size & flux histogram
+	      <br>- col 3: RA/DEC offset (comparison with NVSS)
+	      <br>- col 4: flux difference (comparison with NVSS)
+              <br>- col 5: primary beam correction check (comparison with NVSS)</h4>
+              </p></td> 
+              </tr>
+              </table>
+              <h2 align="middle">FIRST sources within 6 x 6 sq degree</h2>
+              <table>
+              <tr align="middle">
+              <td id="cell">
+              <form action="Figures/first.txt" method="get" target="_blank">
+                 <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
+              </form>
+              
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- data from Vizier FIRST (2014Dec17; Helfand+ 2015)
+              <br>- a resolution of 5 arcsec</h4>
+              </p></td> 
+              </tr>
+              </table>
+              <h2 align="middle">NVSS sources within 6 x 6 sq degree</h2>
+              <table>
+              <tr align="middle">
+              <td id="cell">
+              <form action="Figures/nvss.txt" method="get" target="_blank">
+                 <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
+              </form>
+              
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              <h4 align="left">- data from Vizier NVSS (Condon+ 1998)
+              <br>- a resolution of 45 arcsec</h4>
+              </p>
+              </td>
+              </tr>
+              </table>
+                                             
+              <p align=left>
+              * If more than one version of ASKAPsoft is used for the whole reduction, the latest one is reported.<br>
+              ** Does not take into account field rotation. <br>  
+              Generated at 2020-11-12 18:06:15.658544 <br>
+              <i> Report bugs to 
+              <a href="mailto:hyein.yoon@sydney.edu.au">Hyein Yoon</a></i>
+              </p>
+
+              </body>
+              </html>
