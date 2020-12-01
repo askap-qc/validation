@@ -274,7 +274,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
     Getting flagging statistics and finding out beam-by-beam antenna based (completely) flagging. 
     """
 
-    line = subprocess.check_output(['tail', '-1', flagging_file]) #Grab the last line
+    line = subprocess.check_output(['grep','Flagged', flagging_file]) #grab the summary line
     str_line = line.decode('utf-8')
     TOKS = str_line.split()
     total_flagged_pct = float(TOKS[-2]) #data+autocorrelation
@@ -290,14 +290,15 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
         for line in f:
             if "#" not in line:  # grep -v "#"
                 if "Flagged" not in line:   # grep -v "Flagged"
-                    TOKS=line.split()       
-                    ant1 = int(TOKS[3])
-                    ant2 = int(TOKS[4])
-                    flag = float(TOKS[6])
-                    if (ant1 < ant2) and (flag == 100): # extract non-correlated antenna pairs with 100 percent flagging
-                        ANT1.append(ant1)
-                        ANT2.append(ant2)
-                        FLAG.append(flag)
+                    if len(line.split())>2:  # avoid new channel-wise summaries at end of flagSummary file
+                        TOKS=line.split()
+                        ant1 = int(TOKS[3])
+                        ant2 = int(TOKS[4])
+                        flag = float(TOKS[6])
+                        if (ant1 < ant2) and (flag == 100): # extract non-correlated antenna pairs with 100 percent flagging
+                            ANT1.append(ant1)
+                            ANT2.append(ant2)
+                            FLAG.append(flag)
 
     with open('temp.dat' ,'w') as newlist:
         for j in range(len(ANT1)):
