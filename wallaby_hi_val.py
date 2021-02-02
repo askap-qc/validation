@@ -25,7 +25,7 @@
 # Author: Bi-Qing For
 # Email: biqing.for [at] icrar.org
 # 
-# Modified Date: 28 July 2020
+# Modified Date: 2 Feb 2021 
 ################################################################################
 
 import os
