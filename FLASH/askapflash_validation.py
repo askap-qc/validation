@@ -140,8 +140,10 @@ def get_FIRST(ra, dec):
 
     print ("Retrieving FIRST sources from Vizier. Depending on server connection, this might take a while....")
 
+    catalogue='VIII/92/first14'
+
     Vizier.ROW_LIMIT = -1    
-    v = Vizier(columns=['FIRST', '_RAJ2000', '_DEJ2000', 'p(S)', 'Fpeak', 'Fint', 'Maj', 'Min'], catalog = 'VIII/92/first14', timeout=1000)
+    v = Vizier(columns=['FIRST', '_RAJ2000', '_DEJ2000', 'p(S)', 'Fpeak', 'Fint', 'Maj', 'Min'], catalog = catalogue, timeout=1000)
 #   v = Vizier(columns=['all'], catalog = 'VIII/92/first14')
 
     TOKS_RA = ra.split(":")
@@ -159,8 +161,8 @@ def get_FIRST(ra, dec):
 
     print(first_result)
     first_cat = 'first.txt'
-    if first_result.keys()==['VIII/92/first14']:
-        print (first_result['VIII/92/first14'],file=open(fig_dir + '/' + first_cat,'w'))
+    if first_result.keys()==[catalogue]:
+        print (first_result[catalogue],file=open(fig_dir + '/' + first_cat,'w'))
     else:
         print ("No sources found", file=open(fig_dir + '/' + first_cat,'w'))
     return first_cat
@@ -175,8 +177,10 @@ def get_NVSS(ra, dec):
     from astroquery.vizier import Vizier # for installation: conda install -c astropy astroquery
  
     print ("Retrieving NVSS sources from Vizier. Depending on server connection, this might take a while....")
-    
-    v = Vizier(columns=['NVSS', '_RAJ2000', '_DEJ2000', 'S1.4', 'MajAxis', 'MinAxis'], catalog = 'VIII/65/nvss', timeout=1000)
+
+    catalogue='VIII/65/nvss'
+
+    v = Vizier(columns=['NVSS', '_RAJ2000', '_DEJ2000', 'S1.4', 'MajAxis', 'MinAxis'], catalog = catalogue, timeout=1000)
     v.ROW_LIMIT = -1
 
     TOKS_RA = ra.split(":")
@@ -194,8 +198,8 @@ def get_NVSS(ra, dec):
 
     print(nvss_result) 
     nvss_cat = 'nvss.txt'
-    if nvss_result.keys()==['VIII/65/nvss']:
-        print (nvss_result['VIII/65/nvss'], file=open(fig_dir + '/' + nvss_cat,'w'))
+    if nvss_result.keys()==[catalogue]:
+        print (nvss_result[catalogue], file=open(fig_dir + '/' + nvss_cat,'w'))
     else:
         print ("No sources found", file=open(fig_dir + '/' + first_cat,'w'))
 
