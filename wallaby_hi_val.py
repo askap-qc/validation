@@ -761,28 +761,37 @@ def NoiseRank_histplot(nchan):
 
             # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
             bin_width = 2*iqr(x)*nchan**(-1/3) 
-            n_bins = int((xmax_val - xmin_val)/bin_width)
-    
-            hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
-            with np.errstate(divide='ignore'):  # ignore division of zero 
-                N = np.log10(hist)   # get log N for y-axis
-                N[N == -inf] = 0
 
-            xcenter = (bins[:-1] + bins[1:]) / 2
-            ymax_val = np.max(N)
-            median_val_x = np.median(x)
-            var = np.var(x)
-            
-            # Fitting a Gaussian and use variance (sigma squared) as a metric
-            guess=[ymax_val, median_val_x, 5.0]
-            coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
-            spread = round(np.abs(coeff[2]), 3)
-            ID_LABEL.append(qc_NoiseRank(spread))
-            axs[i].bar(xcenter, N)
-            axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
-            axs[i].set_xlim(xmin_val-3, xmax_val+3)
-            axs[i].set_ylim(0, ymax_val+3)
-            axs[i].title.set_text('Beam%02d' %(i))
+            if bin_width == 0:
+                ID_LABEL.append('bad')
+                axs[i].set_xlim(-1, 1)
+                axs[i].set_ylim(0, 3)
+                axs[i].title.set_text('Beam%02d' %(i))
+
+            else:  
+
+                n_bins = int((xmax_val - xmin_val)/bin_width)
+
+                hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
+                with np.errstate(divide='ignore'):  # ignore division of zero 
+                    N = np.log10(hist)   # get log N for y-axis
+                    N[N == -inf] = 0
+
+                xcenter = (bins[:-1] + bins[1:]) / 2
+                ymax_val = np.max(N)
+                median_val_x = np.median(x)
+                var = np.var(x)
+
+                # Fitting a Gaussian and use variance (sigma squared) as a metric
+                guess=[ymax_val, median_val_x, 5.0]
+                coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
+                spread = round(np.abs(coeff[2]), 3)
+                ID_LABEL.append(qc_NoiseRank(spread))
+                axs[i].bar(xcenter, N)
+                axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
+                axs[i].set_xlim(xmin_val-3, xmax_val+3)
+                axs[i].set_ylim(0, ymax_val+3)
+                axs[i].title.set_text('Beam%02d' %(i))
 
     plt.tight_layout()
     plt.savefig(saved_fig)
