@@ -1034,9 +1034,9 @@ BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, theoretical_rms_mjy)
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*linmos*.png'))  #Mosaic statistic
-beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.png')) #beam-by-beam statistic
-beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.png')) #beam-by-beam statistic
+cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*.cube*linmos*.png'))  #Mosaic statistic
+beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.cube*.png')) #beam-by-beam statistic
+beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.cube*.png')) #beam-by-beam statistic
 
 thumb_cubeplots = []
 thumb_beamNoise = []
