@@ -143,7 +143,7 @@ def get_FIRST(ra, dec):
     catalogue='VIII/92/first14'
 
     Vizier.ROW_LIMIT = -1    
-    v = Vizier(columns=['FIRST', '_RAJ2000', '_DEJ2000', 'p(S)', 'Fpeak', 'Fint', 'Maj', 'Min'], catalog = catalogue, timeout=1000)
+    v = Vizier(columns=['FIRST', '_RAJ2000', '_DEJ2000', 'p(S)', 'Fpeak', 'Fint', 'Maj', 'Min'], catalog = catalogue, timeout=10000)
 #   v = Vizier(columns=['all'], catalog = 'VIII/92/first14')
 
     TOKS_RA = ra.split(":")
@@ -180,7 +180,7 @@ def get_NVSS(ra, dec):
 
     catalogue='VIII/65/nvss'
 
-    v = Vizier(columns=['NVSS', '_RAJ2000', '_DEJ2000', 'S1.4', 'MajAxis', 'MinAxis'], catalog = catalogue, timeout=1000)
+    v = Vizier(columns=['NVSS', '_RAJ2000', '_DEJ2000', 'S1.4', 'MajAxis', 'MinAxis'], catalog = catalogue, timeout=10000)
     v.ROW_LIMIT = -1
 
     TOKS_RA = ra.split(":")
@@ -217,7 +217,7 @@ def get_NVSS(ra, dec):
 #    catalogue='VIII/73/hicat'
     
 #    Vizier.ROW_LIMIT = -1
-#    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue, timeout=1000)
+#    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue, timeout=10000)
 
 #    TOKS_RA = ra.split(":")
 #    ra_hr = float(TOKS_RA[0])
