@@ -194,7 +194,10 @@ def get_NVSS(ra, dec):
 
     print(nvss_result) 
     nvss_cat = 'nvss.txt'
-    print (nvss_result['VIII/65/nvss'], file=open(fig_dir + '/' + nvss_cat,'w'))
+    if nvss_result.keys()==['VIII/65/nvss']:
+        print (nvss_result['VIII/65/nvss'], file=open(fig_dir + '/' + nvss_cat,'w'))
+    else:
+        print ("No sources found", file=open(fig_dir + '/' + first_cat,'w'))
 
     return nvss_cat
 
