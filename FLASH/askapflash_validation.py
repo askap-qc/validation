@@ -201,7 +201,7 @@ def get_NVSS(ra, dec):
     if nvss_result.keys()==[catalogue]:
         print (nvss_result[catalogue], file=open(fig_dir + '/' + nvss_cat,'w'))
     else:
-        print ("No sources found", file=open(fig_dir + '/' + first_cat,'w'))
+        print ("No sources found", file=open(fig_dir + '/' + nvss_cat,'w'))
 
     return nvss_cat
 
@@ -213,9 +213,11 @@ def get_NVSS(ra, dec):
 #    """
 
 #    print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
+
+#    catalogue='VIII/73/hicat'
     
 #    Vizier.ROW_LIMIT = -1
-#    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat', timeout=1000)
+#    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue, timeout=1000)
 
 #    TOKS_RA = ra.split(":")
 #    ra_hr = float(TOKS_RA[0])
@@ -231,7 +233,11 @@ def get_NVSS(ra, dec):
 #    hipass_result = v.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
 
 #    hipass_cat = 'hipass.txt'
-#    print (hipass_result['VIII/73/hicat'], file=open(fig_dir + '/' + hipass_cat,'w'))
+#    if hipass_result.keys() == [catalogue]:
+#        print (hipass_result[catalogue], file=open(fig_dir + '/' + hipass_cat,'w'))
+#    else:
+#        print ("No sources found", file=open(fig_dir + '/' + hipass_cat,'w'))
+
 
 #    return hipass_cat
 
