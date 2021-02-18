@@ -159,8 +159,10 @@ def get_FIRST(ra, dec):
 
     print(first_result)
     first_cat = 'first.txt'
-    print (first_result['VIII/92/first14'],file=open(fig_dir + '/' + first_cat,'w'))
-
+    if first_result.keys()==['VIII/92/first14']:
+        print (first_result['VIII/92/first14'],file=open(fig_dir + '/' + first_cat,'w'))
+    else:
+        print ("No sources found", file=open(fig_dir + '/' + first_cat,'w'))
     return first_cat
 
  
