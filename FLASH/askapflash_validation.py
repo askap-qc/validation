@@ -247,11 +247,10 @@ def get_Version(param):
     Getting the latest ASKAPsoft version that is used for the data reduction.
     """
 
-    line = subprocess.check_output(['tail', '-5', param]) # Grab the last 5 lines
+    line = subprocess.check_output(['grep', 'Processed with ASKAPsoft', param])
     str_line = line.decode('utf-8')
-    newline = str_line.splitlines()[0] # This picks up the first line of the 5 
-    TOKS = newline.split()
-    askapsoft = TOKS[-1]
+    newline = str_line.splitlines()[-1] #Get the most recent, in case there is more than one instance
+    askapsoft = newline.split()[-1]
 
     return askapsoft
         
