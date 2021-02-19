@@ -538,7 +538,7 @@ def qc_BeamLogs():
     """
   
     file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.' + imagebase + field
+    basename = '/beamlog.image.restored.' + imagebase + '.' + field
     tolerance = [30 - 30 * 0.06, 30 + 30 * 0.06]
 
     QC_BEAMS_LABEL = []
@@ -662,7 +662,7 @@ def FlagStat_plot(FLAGSTAT, n):
     """
 
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field  
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
     
     title = 'Flagged Fraction'
     plot_name = 'FlagStat.png'
@@ -845,7 +845,7 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
 
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
@@ -1002,7 +1002,7 @@ def BeamStat_plot(item, n):
     """
 
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field  
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
 
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
