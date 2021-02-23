@@ -25,7 +25,7 @@
 # Author: Bi-Qing For
 # Email: biqing.for [at] icrar.org
 # 
-# Modified Date: 2 Feb 2021 
+# Modified Date:18 Feb 2021 
 ################################################################################
 
 import os
@@ -114,9 +114,11 @@ def get_HIPASS(ra, dec):
     """
 
     print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
+
+    catalogue='VIII/73/hicat'
     
     Vizier.ROW_LIMIT = -1
-    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat', timeout=1000)
+    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue, timeout=10000)
 
     TOKS_RA = ra.split(":")
     ra_hr = float(TOKS_RA[0])
@@ -132,7 +134,10 @@ def get_HIPASS(ra, dec):
     hipass_result = v.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
 
     hipass_cat = 'hipass.txt'
-    print (hipass_result['VIII/73/hicat'], file=open(fig_dir + '/' + hipass_cat,'w'))
+    if hipass_result.keys()==[catalogue]:
+        print (hipass_result[catalogue], file=open(fig_dir + '/' + hipass_cat,'w'))
+    else:
+        print ('No HIPASS sources within 6 degrees', file=open(fig_dir + '/' + hipass_cat,'w'))
 
     return hipass_cat
 
@@ -142,11 +147,10 @@ def get_Version(param):
     Getting the latest ASKAPsoft version that is used for the data reduction.
     """
 
-    line = subprocess.check_output(['tail', '-5', param]) # Grab the last 5 lines
+    line = subprocess.check_output(['grep', 'Processed with ASKAPsoft', param])
     str_line = line.decode('utf-8')
-    newline = str_line.splitlines()[0] # This picks up the first line of the 5 
-    TOKS = newline.split()
-    askapsoft = TOKS[-1]
+    newline = str_line.splitlines()[-1] #Get the most recent, in case there is more than one instance
+    askapsoft = newline.split()[-1]
 
     return askapsoft
         
@@ -421,7 +425,7 @@ def qc_BeamLogs():
     """
     
     file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.' + imagebase + field
+    basename = '/beamlog.image.restored.' + imagebase + '.' + field
     QC_BEAMS_LABEL = []
     
     for i in range(0,36):
@@ -541,7 +545,7 @@ def FlagStat_plot(FLAGSTAT, n):
     """
 
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field  
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
     
     title = 'Flagged Fraction'
     plot_name = 'FlagStat.png'
@@ -719,7 +723,7 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
 
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
@@ -756,28 +760,37 @@ def NoiseRank_histplot(nchan):
 
             # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
             bin_width = 2*iqr(x)*nchan**(-1/3) 
-            n_bins = int((xmax_val - xmin_val)/bin_width)
-    
-            hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
-            with np.errstate(divide='ignore'):  # ignore division of zero 
-                N = np.log10(hist)   # get log N for y-axis
-                N[N == -inf] = 0
 
-            xcenter = (bins[:-1] + bins[1:]) / 2
-            ymax_val = np.max(N)
-            median_val_x = np.median(x)
-            var = np.var(x)
-            
-            # Fitting a Gaussian and use variance (sigma squared) as a metric
-            guess=[ymax_val, median_val_x, 5.0]
-            coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
-            spread = round(np.abs(coeff[2]), 3)
-            ID_LABEL.append(qc_NoiseRank(spread))
-            axs[i].bar(xcenter, N)
-            axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
-            axs[i].set_xlim(xmin_val-3, xmax_val+3)
-            axs[i].set_ylim(0, ymax_val+3)
-            axs[i].title.set_text('Beam%02d' %(i))
+            if bin_width == 0:
+                ID_LABEL.append('bad')
+                axs[i].set_xlim(-1, 1)
+                axs[i].set_ylim(0, 3)
+                axs[i].title.set_text('Beam%02d' %(i))
+
+            else:  
+
+                n_bins = int((xmax_val - xmin_val)/bin_width)
+
+                hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
+                with np.errstate(divide='ignore'):  # ignore division of zero 
+                    N = np.log10(hist)   # get log N for y-axis
+                    N[N == -inf] = 0
+
+                xcenter = (bins[:-1] + bins[1:]) / 2
+                ymax_val = np.max(N)
+                median_val_x = np.median(x)
+                var = np.var(x)
+
+                # Fitting a Gaussian and use variance (sigma squared) as a metric
+                guess=[ymax_val, median_val_x, 5.0]
+                coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
+                spread = round(np.abs(coeff[2]), 3)
+                ID_LABEL.append(qc_NoiseRank(spread))
+                axs[i].bar(xcenter, N)
+                axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
+                axs[i].set_xlim(xmin_val-3, xmax_val+3)
+                axs[i].set_ylim(0, ymax_val+3)
+                axs[i].title.set_text('Beam%02d' %(i))
 
     plt.tight_layout()
     plt.savefig(saved_fig)
@@ -875,7 +888,7 @@ def BeamStat_plot(item, n):
     Plotting and visualising statistics of 36 beams. 
     """
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field  
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
 
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
@@ -954,7 +967,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
-fitsimage = ('image.restored.'+ imagebase + 'contsub.fits')
+fitsimage = ('image.restored.'+ imagebase + '.contsub.fits')
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1029,9 +1042,9 @@ BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, theoretical_rms_mjy)
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*linmos*.png'))  #Mosaic statistic
-beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.png')) #beam-by-beam statistic
-beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.png')) #beam-by-beam statistic
+cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*.cube*linmos*.png'))  #Mosaic statistic
+beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.cube*.png')) #beam-by-beam statistic
+beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.cube*.png')) #beam-by-beam statistic
 
 thumb_cubeplots = []
 thumb_beamNoise = []
