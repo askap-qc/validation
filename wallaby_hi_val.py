@@ -19,13 +19,16 @@
 #
 # To run type:
 #
-# python <script name> <SBID>
-# e.g. python ASKAP_specline_val.py 8170
+# python <script name> -s <sbid> -c <cal sbid> -i <imagebase name>
+# e.g. python wallaby_hi_val.py -s 12209 -c 12194
+#
+# A default is set if no imagebase name is specified. 
 #
 # Author: Bi-Qing For
 # Email: biqing.for [at] icrar.org
 # 
-# Modified Date: 2 Feb 2021 
+# Modified Date: 23 Feb 2021 (BQF)
+#
 ################################################################################
 
 import os
@@ -50,10 +53,10 @@ from astropy.io.fits import getheader
 from scipy.stats import iqr
 from scipy.optimize import curve_fit
 from numpy import inf
-from scipy import asarray as ar,exp
 from astroquery.vizier import Vizier
-
+from astroquery.vizier import conf
 from argparse import ArgumentParser
+import re
 
 # This step is necessary to avoid matplotlib using the Xwindows backend. 
 # Otherwise, it does not work on galaxy. 
@@ -94,7 +97,7 @@ def gauss(x, *p):
     """
     A, mu, sigma = p
 
-    return A*exp(-(x-mu)**2/(2.*sigma**2))
+    return A*np.exp(-(x-mu)**2/(2.*sigma**2))
 
 
 def get_FitsHeader(fitsimage):
@@ -110,30 +113,70 @@ def get_FitsHeader(fitsimage):
 
 def get_HIPASS(ra, dec):
     """
-    Getting the HIPASS sources (HICAT; Meyer et al. 2004) within the 6x6 sq deg field through VizieR. 
+    Getting the HIPASS sources within the 6x6 sq deg field through VizieR. 
+    HICAT; Meyer et al. (2004)
+    NHICAT; Wong et al. (2006)
+    HIPASS BGC; Koribalski et al. (2004)
     """
 
     print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
+    conf.server = 'vizier.cfa.harvard.edu'
+
+    catalogue_hicat ='VIII/73/hicat'
+    catalogue_nhicat = 'VIII/89/nhicat'
+    catalogue_BGC = 'J/AJ/128/16'
     
     Vizier.ROW_LIMIT = -1
-    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat', timeout=1000)
+    hicat = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue_hicat, vizier_server=conf.server, timeout=10000)
+    nhicat = Vizier(columns=['HIPASS', '_RAJ2000', 'DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Q', 'cf', 'ext'], catalog = catalogue_nhicat, vizier_server=conf.server, timeout=10000)
+    BGC = Vizier(columns=['HIPASS', 'RAJ2000', 'DEJ2000', 'GLON', 'GLAT', 'ID', 'SPeak', 'e_SPeak', 'FHI', 'e_FHI', 'Vsys', 'e_VSys', 'W50', 'W20', 'VLG', 'logM', 'f_logM'], catalog = catalogue_BGC , vizier_server=conf.server, timeout=10000)
 
     TOKS_RA = ra.split(":")
     ra_hr = float(TOKS_RA[0])
     ra_min = float(TOKS_RA[1])
     ra_sec = float(TOKS_RA[2])
-    ra_deg = round(15.0*(ra_hr + ra_min/60. + ra_sec/3600.), 5) #Converting it to decimal degree
+    ra_deg = round(15.0*(ra_hr + ra_min/60. + ra_sec/3600.), 7) #Converting it to decimal degree
     TOKS_DEC = dec.split(".", 2)
-    dec_deg = float(TOKS_DEC[0])
+    TOKS_DEC_SIGN = TOKS_DEC[0][0]  #extract the positive or negative sign
+    dec_deg = float(TOKS_DEC[0][1:])
     dec_arcmin = float(TOKS_DEC[1])
     dec_arcsec = float(TOKS_DEC[2])
-    dec_tdeg = round(dec_deg + dec_arcmin/60. + dec_arcsec/3600., 5) #Converting it to decimal degree
+    dec_tdeg = round(dec_deg + dec_arcmin/60. + dec_arcsec/3600., 7) #Converting it to decimal degree ignoring the sign here
+    if TOKS_DEC_SIGN == '-': # taking into account the negative sign
+        dec_tdeg = dec_tdeg * -1.0
+        
+    hicat_result = hicat.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
+    nhicat_result = nhicat.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_deg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
+    BGC_result = BGC.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
+                        
+    hipass_cat = fig_dir+'/'+'hipass.txt'
+
+    # Check if the file exists
+    if os.path.isfile(hipass_cat):
+        os.system('rm '+ hipass_cat)
+
+    f = open(hipass_cat,'a')
+
+    if hicat_result.keys()==[catalogue_hicat]:
+        f.write('# HICAT; Meyer et al. 2004\n')
+        hicat_result[catalogue_hicat].write(f, format='ascii.fixed_width', delimiter=' ')
+    else:
+        f.write('No HICAT sources (Meyer et al. 2004) within 6x6 degrees\n')
     
-    hipass_result = v.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
+    if nhicat_result.keys()==[catalogue_nhicat]:
+        f.write('# NHICAT; Wong et al. 2006\n')
+        nhicat_result[catalogue_nhicat].write(f, format='ascii.fixed_width', delimiter=' ')
+    else:
+        f.write('No Northern HICAT sources (Wong et al. 2006) within 6x6 degrees\n')
+    
+    if BGC_result.keys()==[catalogue_BGC]:
+        f.write('# HIPASS Bright Galaxies Catalogue; Koribalski et al. 2004\n')
+        BGC_result[catalogue_BGC].write(f, format='ascii.fixed_width', delimiter=' ')
+    else:
+        f.write('No HIPASS Bright Galaxies Catalogue sources (Koribalski et al. 2004) within 6x6 degrees')
 
-    hipass_cat = 'hipass.txt'
-    print (hipass_result['VIII/73/hicat'], file=open(fig_dir + '/' + hipass_cat,'w'))
-
+    f.close()
+        
     return hipass_cat
 
     
@@ -142,11 +185,9 @@ def get_Version(param):
     Getting the latest ASKAPsoft version that is used for the data reduction.
     """
 
-    line = subprocess.check_output(['tail', '-5', param]) # Grab the last 5 lines
+    line = subprocess.check_output(['grep', 'Processed with ASKAPsoft', param])
     str_line = line.decode('utf-8')
-    newline = str_line.splitlines()[0] # This picks up the first line of the 5 
-    TOKS = newline.split()
-    askapsoft = TOKS[-1]
+    askapsoft = re.findall('ASKAPsoft\ version\ [0-9].+', str_line)[0].split()[-1]
 
     return askapsoft
         
@@ -414,45 +455,27 @@ def qc_Bad_Chans(infile, mad_rms, med_rms):
     
     return n_bad_chan, mosaic_bad_chan, QC_badchan_id
 
-def qc_BeamLogs():
+def qc_BeamLogs(beam_threshold):
     """
-    Evaluating each channel of each beam if ASKAPSoft fails to synthesize the beam, bmaj and bmin to 30 arcsec (WALLABY default)
-    Bmaj and bmin for the first few channels are always zero. 
+    Evaluating the threshold of the measured beams. 
+    Greater than 5% is bad for flux error.
+    Between 3% and 5% is OK for flux error.
+    Less than 3% is good for flux error.
     """
     
-    file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.' + imagebase + field
-    QC_BEAMS_LABEL = []
-    
+    QC_BEAM_LABEL = []
+
     for i in range(0,36):
-        infile = file_dir + basename +'.beam%02d.txt'%(i)
-        beamlog_file = open(infile, 'r')
-        LINES = beamlog_file.readlines()[1:]
-        beamlog_file.close()
-        
-        for j in range(len(LINES)):
-            line = LINES[j]
-            TOKS = line.split()
-            bmaj = TOKS[1]
-            bmin = TOKS[2]
-            if (bmaj != '0' and bmaj != '30'):
-                qc_BMAJ_label = 'fail'
-                break        
-            else:
-                qc_BMAJ_label = 'pass'
-
-            if (bmin != '0' and bmin != '30'):
-                qc_BMIN_label = 'fail'
-                break        
-            else:
-                qc_BMIN_label = 'pass'
-  
-        if (qc_BMAJ_label == 'fail') or (qc_BMIN_label == 'fail'):
-            QC_BEAMS_LABEL.append('fail')
+        b_threshold = beam_threshold[i]  #index 0 corresponds to beam 26 as input threshold is sorted by beam position.  
+        if (b_threshold >= 0.05):  
+            QC_BEAM_LABEL.append('bad')
+        elif (0.03 <= b_threshold < 0.05):
+            QC_BEAM_LABEL.append('ok')
         else:
-            QC_BEAMS_LABEL.append('pass')
+            QC_BEAM_LABEL.append('good')
 
-    return QC_BEAMS_LABEL
+    return QC_BEAM_LABEL
+    
 
 def cal_beam_MADMFD(infile):
     """
@@ -524,6 +547,36 @@ def cal_Beam_ExpRMS(FLAGSTAT, t_rms):
     
     return BEAM_EXP_RMS
 
+def cal_ResBeam_Stats(infile, header_bmaj, header_bmin):
+    """
+    Calculating the standard deviation of (restoring beam) bmaj and bmin of 36 beams. 
+    Header bmaj and bmin are used as mean values for standard deviation calculations. 
+    This is to compare how much the measured values are deviated from the header values. 
+    Because the flux calculation depends on the beam area, we need to calculate the threshold 
+    of each beam to do the QC. 
+    """
+
+    beamlog_file = np.loadtxt(infile)
+    bmaj = beamlog_file[:,1]
+    bmin = beamlog_file[:,2]
+    ind_nonzero_bmaj = np.nonzero(bmaj) # finding array indices of nonzero values
+    ind_nonzero_bmin = np.nonzero(bmin)
+    total_nbmaj = np.count_nonzero(bmaj) # count total number of bmaj non zero occurance
+    total_nbmin = np.count_nonzero(bmin)
+    bmaj_variance = (np.sum((bmaj[ind_nonzero_bmaj]-header_bmaj)**2.0))/total_nbmaj # using header beam value as mean 
+    bmin_variance = (np.sum((bmin[ind_nonzero_bmin]-header_bmin)**2.0))/total_nbmin
+    bmaj_stdev = np.sqrt(bmaj_variance)
+    bmin_stdev = np.sqrt(bmin_variance)
+    beam_threshold = round((((header_bmaj + bmaj_stdev) * (header_bmin + bmin_stdev))/ (header_bmaj*header_bmin))-1.0, 4)
+    bmaj_max = np.max(bmaj[ind_nonzero_bmaj])
+    bmaj_min = np.min(bmaj[ind_nonzero_bmaj])
+    bmin_max = np.max(bmin[ind_nonzero_bmin])
+    bmin_min = np.min(bmin[ind_nonzero_bmin])
+    max_ratio_beam_area = (bmaj_max*bmin_max)/(header_bmaj*header_bmin) # measured beam area / header beam area
+    min_ratio_beam_area = (bmaj_min*bmin_min)/(header_bmaj*header_bmin)
+
+    return bmaj_stdev, bmin_stdev, beam_threshold, max_ratio_beam_area, min_ratio_beam_area
+
 
 def cal_binnedAvg(dataArray, N):
     """
@@ -540,9 +593,6 @@ def FlagStat_plot(FLAGSTAT, n):
     Plotting and visualising flagging statistics of 36 beams. 
     """
 
-    file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field  
-    
     title = 'Flagged Fraction'
     plot_name = 'FlagStat.png'
     saved_fig = fig_dir+'/'+plot_name
@@ -557,20 +607,22 @@ def FlagStat_plot(FLAGSTAT, n):
     
     for i in range(36):
         bnum = n[i]
-        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[FLAGSTAT[bnum]], cmap='tab20c', edgecolors='black',vmin=0, vmax=100)
-        plt.text(beamXPOS[i], beamYPOS[i], n[i])
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[FLAGSTAT[bnum]], cmap='tab20c', edgecolors='black',vmin=0, vmax=100)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i], va='center', ha='center')
 
     plt.xlim(0,0.7)
+    plt.ylim(0,1.4)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
     plt.title(title)
     cb = plt.colorbar()
     cb.set_label('Percentage')
     cb.ax.tick_params(labelsize=10)
 
-    plt.savefig(saved_fig)
+    plt.savefig(saved_fig, bbox_inches='tight')
     plt.close()
 
     return saved_fig, plot_name
+
 
 def FlagAnt_plot(N_FLAG_ANT, n):
     """
@@ -596,10 +648,11 @@ def FlagAnt_plot(N_FLAG_ANT, n):
 
     for i in range(36):
         bnum = n[i]
-        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[N_FLAG_ANT[bnum]], cmap=cmap, edgecolors='black',vmin=0, vmax=maxflag)
-        plt.text(beamXPOS[i], beamYPOS[i], n[i])
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[N_FLAG_ANT[bnum]], cmap=cmap, edgecolors='black',vmin=0, vmax=maxflag)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i], va='center', ha='center')
 
     plt.xlim(0,0.7)
+    plt.ylim(0,1.4)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
     plt.title(title)
     cb = plt.colorbar()
@@ -613,7 +666,6 @@ def FlagAnt_plot(N_FLAG_ANT, n):
     plt.close()
 
     return saved_fig, plot_name
-
 
 def Beam_ExpRMSplot(BEAM_EXPRMS, n):
     """
@@ -636,10 +688,11 @@ def Beam_ExpRMSplot(BEAM_EXPRMS, n):
 
     for i in range(36):
         bnum = n[i]
-        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[BEAM_EXPRMS[bnum]], cmap='GnBu', edgecolors='black', vmin=VMIN, vmax=VMAX)
-        plt.text(beamXPOS[i], beamYPOS[i], n[i])
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[BEAM_EXPRMS[bnum]], cmap='GnBu', edgecolors='black', vmin=VMIN, vmax=VMAX)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i], va='center', ha='center')
 
     plt.xlim(0,0.7)
+    plt.ylim(0,1.4)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
     plt.title(title)
     cb = plt.colorbar()
@@ -659,8 +712,8 @@ def BeamLogs_QCplot(list_beams_id_label, n):
               'font.size':10}
 
     pylab.rcParams.update(params)
-    
-    legend_dict = { 'pass' : '#00FF00', 'fail' : '#CD5C5C' }
+    legend_dict = { 'good' : '#00FF00', 'ok' : '#FFD700', 'bad' : '#CD5C5C' }
+
     patchList = []
     XPOS, YPOS = BeamPosition()
 
@@ -668,14 +721,15 @@ def BeamLogs_QCplot(list_beams_id_label, n):
     saved_fig = fig_dir + '/' + plot_name
     
     for i in range(36):
-        bnum = n[i]
-        if (list_beams_id_label[bnum] =='pass'):
+        if (list_beams_id_label[i] =='good'): #index 0 corresponds to beam 26 
             color_code = '#00FF00'
+        elif (list_beams_id_label[i] =='ok'):
+            color_code = '#FFD700'
         else:
             color_code = '#CD5C5C'
         
-        plt.scatter([XPOS[i]], [YPOS[i]], s=1500, color=color_code, edgecolors='black')
-        plt.text(XPOS[i], YPOS[i], n[i])
+        plt.scatter([XPOS[i]], [YPOS[i]], s=1300, color=color_code, edgecolors='black')
+        plt.text(XPOS[i], YPOS[i], n[i], va='center', ha='center')
 
     for key in legend_dict:
         data_key = mpatches.Patch(color=legend_dict[key], label=key)
@@ -683,12 +737,14 @@ def BeamLogs_QCplot(list_beams_id_label, n):
 
     plt.legend(handles=patchList)
     plt.xlim(0,0.8)
+    plt.ylim(0,1.4)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
     plt.title('Beam Log')
     plt.savefig(saved_fig, bbox_inches='tight')
     plt.close()
 
     return saved_fig, plot_name
+
 
 def qc_NoiseRank(spread):
     """
@@ -697,13 +753,6 @@ def qc_NoiseRank(spread):
 
     variance = spread*spread # for a Gaussian
     
-#    if (spread <= 2.5*sigma):
-#        qc_label = 'good'
-#    elif (2.5*sigma < spread < 3*sigma):
-#        qc_label = 'ok'
-#    else:
-#        qc_label = 'bad'
-
     if (variance <= 0.2):
         qc_label = 'good'
     elif (0.2 < variance < 0.25):
@@ -719,6 +768,7 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
+#    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
     basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 6,
@@ -756,28 +806,38 @@ def NoiseRank_histplot(nchan):
 
             # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
             bin_width = 2*iqr(x)*nchan**(-1/3) 
-            n_bins = int((xmax_val - xmin_val)/bin_width)
-    
-            hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
-            with np.errstate(divide='ignore'):  # ignore division of zero 
-                N = np.log10(hist)   # get log N for y-axis
-                N[N == -inf] = 0
 
-            xcenter = (bins[:-1] + bins[1:]) / 2
-            ymax_val = np.max(N)
-            median_val_x = np.median(x)
-            var = np.var(x)
-            
-            # Fitting a Gaussian and use variance (sigma squared) as a metric
-            guess=[ymax_val, median_val_x, 5.0]
-            coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
-            spread = round(np.abs(coeff[2]), 3)
-            ID_LABEL.append(qc_NoiseRank(spread))
-            axs[i].bar(xcenter, N)
-            axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
-            axs[i].set_xlim(xmin_val-3, xmax_val+3)
-            axs[i].set_ylim(0, ymax_val+3)
-            axs[i].title.set_text('Beam%02d' %(i))
+            # If IQR is zero, most data are zero or masked. Mark beam as bad.            
+            if bin_width == 0:
+                ID_LABEL.append('bad')
+                axs[i].set_xlim(-1, 1)
+                axs[i].set_ylim(0, 3)
+                axs[i].title.set_text('Beam%02d' %(i))
+
+            else:  
+
+                n_bins = int((xmax_val - xmin_val)/bin_width)
+
+                hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
+                with np.errstate(divide='ignore'):  # ignore division of zero 
+                    N = np.log10(hist)   # get log N for y-axis
+                    N[N == -inf] = 0
+
+                xcenter = (bins[:-1] + bins[1:]) / 2
+                ymax_val = np.max(N)
+                median_val_x = np.median(x)
+                var = np.var(x)
+
+                # Fitting a Gaussian and use variance (sigma squared) as a metric
+                guess=[ymax_val, median_val_x, 5.0]
+                coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
+                spread = round(np.abs(coeff[2]), 3)
+                ID_LABEL.append(qc_NoiseRank(spread))
+                axs[i].bar(xcenter, N)
+                axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
+                axs[i].set_xlim(xmin_val-3, xmax_val+3)
+                axs[i].set_ylim(0, ymax_val+3)
+                axs[i].title.set_text('Beam%02d' %(i))
 
     plt.tight_layout()
     plt.savefig(saved_fig)
@@ -811,7 +871,7 @@ def NoiseRank_QCplot(list_id_label, n):
             color_code = '#CD5C5C'
         
         plt.scatter([XPOS[i]], [YPOS[i]], s=1500, color=color_code, edgecolors='black')
-        plt.text(XPOS[i], YPOS[i], n[i])
+        plt.text(XPOS[i], YPOS[i], n[i], va='center', ha='center')
 
     for key in legend_dict:
         data_key = mpatches.Patch(color=legend_dict[key], label=key)
@@ -819,23 +879,21 @@ def NoiseRank_QCplot(list_id_label, n):
 
     plt.legend(handles=patchList)
     plt.xlim(0,0.8)
+    plt.ylim(0,1.4)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
     plt.title('1-percentile noise rank')
-    plt.savefig(saved_fig, bbox_inches='tight')
+    plt.tight_layout()
+    plt.savefig(saved_fig)
     plt.close()
 
     return saved_fig, plot_name
 
-
 """
 def qc_Max_Flux_Density (infile, delta_freq_range, mean_beamMADMFD):
-
     Evaluating the max flux density (MFD) of the mosaic.
     Metric to check for the effect of solar interference. 
     First, check the processed mosaic contains at least 5 MHz of data. 
     Then, calculating the MAD of MFD and comparing it to the mean of MADMFD of central 16 beams. 
-
-
     if delta_freq_range > 5.0:  # need to have at least 5 MHz bandwidth of data to check for meaningful variation
         data = np.loadtxt(infile)
         maxfdensity = data[:,8]
@@ -844,18 +902,14 @@ def qc_Max_Flux_Density (infile, delta_freq_range, mean_beamMADMFD):
             maxfden_id = 'bad' 
         else:
             maxfden_id = 'good' 
-
     else:
         print 'Warning: Processed data are less than 5 MHz, variation of max flux density is not meaningful.'
         maxfden_id = 'uncertain'
         
     return mad_maxfdensity, maxfden_id
-
     
 def qc_RMS(infile, theoretical_rms_mjy):
-
     Evaluationg the RMS values of mosaic in ~1 MHz interval.  
-
     
     N = 54
     count = 0
@@ -867,7 +921,6 @@ def qc_RMS(infile, theoretical_rms_mjy):
         count += 1  
     
     return bin_rms
-
 """
 
 def BeamStat_plot(item, n):
@@ -909,10 +962,11 @@ def BeamStat_plot(item, n):
             if item == 'Avg_RMS':
                 beamstat = cal_beam_AvgRMS(infile)
 
-        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1500, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
-        plt.text(beamXPOS[i], beamYPOS[i], n[i])
+        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
+        plt.text(beamXPOS[i], beamYPOS[i], n[i], va='center', ha='center')
 
     plt.xlim(0,0.7)
+    plt.ylim(0,1.4)
     plt.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
     plt.title(title)
     cb = plt.colorbar()
@@ -923,6 +977,98 @@ def BeamStat_plot(item, n):
     return saved_fig, plot_name
 
 
+def ResBeam_Stats_plot(n, header_bmaj, header_bmin):
+    """
+    Plotting the standard deviation of (restoring beam) bmaj and bmin of 36 beam.
+    """ 
+
+    file_dir = 'SpectralCube_BeamLogs'
+#    basename = '/beamlog.image.restored.' + imagebase + '.' + field
+    basename = '/beamlog.image.restored.' + imagebase + field
+
+    BEAM_THRESHOLD = []
+    
+    title1 = 'Restoring beam bmaj standard deviation [arcsec]'
+    plt_name1 = 'BmajStdev.png'
+    saved_fig1 = fig_dir+'/'+plt_name1
+
+    title2 = 'Restoring beam bmin standard deviation [arcsec]'
+    plt_name2 = 'BminStdev.png'
+    saved_fig2 = fig_dir+'/'+plt_name2
+
+    title3 = 'Maximum ratio of beam area'
+    plt_name3 = 'max_ratioBA.png'
+    saved_fig3 = fig_dir+'/'+plt_name3
+
+    title4 = 'Minimum ratio of beam area' 
+    plt_name4 = 'min_ratioBA.png'
+    saved_fig4 = fig_dir+'/'+plt_name4
+    
+    params = {'axes.labelsize': 10,
+              'axes.titlesize': 10,
+              'font.size':10}
+
+    pylab.rcParams.update(params)
+
+    beamXPOS, beamYPOS = BeamPosition()
+    fig1, ax1 = plt.subplots()
+    fig2, ax2 = plt.subplots()
+    fig3, ax3 = plt.subplots()
+    fig4, ax4 = plt.subplots()
+    
+    for i in range(0,36):
+        bnum = n[i]
+        infile = file_dir + basename +'.beam%02d.txt'%(bnum)
+        bmaj_stdev, bmin_stdev, beam_threshold, max_ratio_BA, min_ratio_BA = cal_ResBeam_Stats(infile, header_bmaj, header_bmin)
+        BEAM_THRESHOLD.append(beam_threshold)
+
+        ax1.scatter([beamXPOS[i]], [beamYPOS[i]], s=1400, edgecolors='black', facecolors='none')
+        ax1.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+        ax1.text(beamXPOS[i], beamYPOS[i]-0.02, round(bmaj_stdev, 3), va='center', ha='center', fontsize=8, color='blue')
+
+        ax2.scatter([beamXPOS[i]], [beamYPOS[i]], s=1400, edgecolors='black', facecolors='none')
+        ax2.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+        ax2.text(beamXPOS[i], beamYPOS[i]-0.02, round(bmin_stdev,3), va='center', ha='center', fontsize=8, color='blue')
+
+        maxplot = ax3.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[max_ratio_BA], cmap='summer', edgecolors='black', vmin=0, vmax=1.1)
+        ax3.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+        ax3.text(beamXPOS[i], beamYPOS[i]-0.02, round(max_ratio_BA,3), va='center', ha='center', fontsize=8, color='blue')
+        
+        minplot = ax4.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[min_ratio_BA], cmap='summer', edgecolors='black', vmin=0, vmax=1.1)
+        ax4.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+        ax4.text(beamXPOS[i], beamYPOS[i]-0.02, round(min_ratio_BA,3), va='center', ha='center', fontsize=8, color='blue')
+        
+    ax1.set_xlim(0,0.7)
+    ax1.set_ylim(0,1.4)
+    ax1.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    ax1.set_title(title1)
+
+    ax2.set_xlim(0,0.7)
+    ax2.set_ylim(0,1.4)
+    ax2.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    ax2.set_title(title2)
+
+    ax3.set_xlim(0,0.7)
+    ax3.set_ylim(0,1.4)
+    ax3.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    ax3.set_title(title3)
+    plt.colorbar(maxplot, ax=ax3)
+
+    ax4.set_xlim(0,0.7)
+    ax4.set_ylim(0,1.4)
+    ax4.tick_params(axis='both',which='both', bottom=False,top=False,right=False,left=False,labelbottom=False, labelleft=False)
+    ax4.set_title(title4)
+    plt.colorbar(minplot, ax=ax4)
+
+    fig1.savefig(saved_fig1, bbox_inches='tight')
+    fig2.savefig(saved_fig2, bbox_inches='tight')
+    fig3.savefig(saved_fig3, bbox_inches='tight')
+    fig4.savefig(saved_fig4, bbox_inches='tight')
+
+    plt.close('all')
+
+    return saved_fig1, saved_fig2, plt_name1, plt_name2, saved_fig3, saved_fig4, plt_name3, plt_name4, BEAM_THRESHOLD 
+    
 ###########################################################
 # Main program where it calls all the functions
 ###########################################################
@@ -966,14 +1112,13 @@ if len(param_file) >=1:
 else:
     param = param_file[0]
 
-# Check if image cube is available. For WALLABY, this is not needed as
-# the bmaj and bmin is fixed to 30"x30". 
+# Check if image cube is available. If not, abort. Otherwise, get bmaj and bmin info.
 
-if not os.path.isfile(fitsimage):
-    bmaj = 30
-    bmin = 30
+if os.path.isfile(fitsimage):
+    header_bmaj, header_bmin = get_FitsHeader(fitsimage)
 else:
-    bmaj, bmin = get_FitsHeader(fitsimage)
+    print ('The image cube does not exist. Abort!')
+    sys.exit()
 
 n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, total_obs_bw = get_Metadata(metafile)
 askapsoft = get_Version(param)
@@ -991,14 +1136,7 @@ n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsu
 QC_mdata_id, QC_mdata_keyword = qc_Missing_Data(cubestat_linmos_contsub)
 hipass_cat = get_HIPASS(ra, dec)
 
-# Check if flagging statistic file is available. Earlier ASKAPSoft run did not include the file.
-#if not os.path.isfile(flagging_file):
-#    flagged_stat = 'N/A'
-#else:
-#    flagged_stat = get_Flagging(flagging_file)
-
 flagging_file = sorted(glob.glob(diagnostics_dir+'/Flagging_Summaries/*SL.ms.flagSummary')) #Flagging statistic for spectral line
-
 FLAG_STAT, N_FLAG_ANT = [], []
 
 if os.path.isfile(fig_dir+'/flagged_antenna.txt'):
@@ -1029,9 +1167,9 @@ BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, theoretical_rms_mjy)
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*linmos*.png'))  #Mosaic statistic
-beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.png')) #beam-by-beam statistic
-beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.png')) #beam-by-beam statistic
+cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*.cube*linmos*.png'))  #Mosaic statistic
+beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.cube*.png')) #beam-by-beam statistic
+beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.cube*.png')) #beam-by-beam statistic
 
 thumb_cubeplots = []
 thumb_beamNoise = []
@@ -1057,21 +1195,24 @@ beam_MADMFD_fig, MADMFD_plot = BeamStat_plot('MADMFD', n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
 make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
 
+bmaj_stdev_fig, bmin_stdev_fig, bmaj_stdev_plot, bmin_stdev_plot, max_ratioBA_fig, min_ratioBA_fig, max_ratioBA_plot, min_ratioBA_plot, beam_threshold = ResBeam_Stats_plot(n, header_bmaj, header_bmin)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ bmaj_stdev_plot
+make_Thumbnail(bmaj_stdev_fig, thumb_img, sizeX, sizeY, fig_dir)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ bmin_stdev_plot
+make_Thumbnail(bmin_stdev_fig, thumb_img, sizeX, sizeY, fig_dir)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ max_ratioBA_plot
+make_Thumbnail(max_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ min_ratioBA_plot
+make_Thumbnail(min_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
+
 # mean RMS of each beam and compares it to theoretical RMS (not taking into account flagging)
-beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
+#beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
 #thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
 #make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
 
 beamExpRMS_fig, beamExpRMS_plot = Beam_ExpRMSplot(BEAM_EXP_RMS, n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ beamExpRMS_plot
 make_Thumbnail(beamExpRMS_fig, thumb_img, sizeX, sizeY, fig_dir)
-
-
-#QC_mad_maxfden, QC_maxfden_id = qc_Max_Flux_Density(cubestat_contsub, delta_freq_range) #Continuum subtracted
-#QC_mad_maxfden = '2.0'
-#QC_maxfden_id = 'good'
-
-#bin_value = qc_RMS(cubestat_contsub, theoretical_rms_mjy)
 
 beam_1pctile_histfig, onepctile_plot, list_id_label = NoiseRank_histplot(float(nchan))
 thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_plot
@@ -1081,7 +1222,7 @@ beam_1pctile_QCfig, onepctile_QCplot = NoiseRank_QCplot(list_id_label, n)
 thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot
 make_Thumbnail(beam_1pctile_QCfig, thumb_img, sizeX, sizeY, fig_dir)
 
-list_beams_id_label = qc_BeamLogs()
+list_beams_id_label = qc_BeamLogs(beam_threshold)
 BeamLogs_QCfig, BeamLogs_QCplot = BeamLogs_QCplot(list_beams_id_label, n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ BeamLogs_QCplot
 make_Thumbnail(BeamLogs_QCfig, thumb_img, sizeX, sizeY, fig_dir)
@@ -1125,7 +1266,6 @@ css_style = """<style>
                   #good {
                          background-color:#00FF00;
                   }
-
                   #ok {
                          background-color:#FFD700;
                   }
@@ -1222,8 +1362,8 @@ html.write("""</td>
                                    freq_range,
                                    cfreq,
                                    chan_width_kHz,
-                                   bmaj,
-                                   bmin,
+                                   header_bmaj,
+                                   header_bmin,
                                    BeamLogs_QCfig, 
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot,
                                    sizeX,
@@ -1321,6 +1461,15 @@ html.write("""</td>
                     <a href="{4}" target="_blank"><img src="{5}" width="{6}" height="{7}" alt="thumbnail"></a>
                     <a href="{8}" target="_blank"><img src="{9}" width="{10}" height="{11}" alt="thumbnail"></a>
                     <br><p>1-percentile noise rank</p>
+                    <td>
+                    <a href="{12}" target="_blank"><img src="{13}" width="{14}" height="{15}" alt="thumbnail"></a>
+                    <a href="{16}" target="_blank"><img src="{17}" width="{18}" height="{19}" alt="thumbnail"></a>
+                    <br><p>Restoring Beam Stdev</p>
+                    <td>
+                    <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
+                    <a href="{24}" target="_blank"><img src="{25}" width="{26}" height="{27}" alt="thumbnail"></a>
+                    <br><p>Restoring Beam Area Ratio</p>
+                    </td>
                     """.format(fig_dir+'/'+'beamStat_MADMFD.png',
                                fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_beamStat_MADMFD.png',
                                sizeX,
@@ -1332,7 +1481,25 @@ html.write("""</td>
                                beam_1pctile_QCfig, 
                                fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + onepctile_QCplot,
                                sizeX,
-                               sizeY))
+                               sizeY,
+                               fig_dir+'/'+'BmajStdev.png',
+                               fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_BmajStdev.png',
+                               sizeX,
+                               sizeY,
+                               fig_dir+'/'+'BminStdev.png',
+                               fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_BminStdev.png',
+                               sizeX,
+                               sizeY,
+                               fig_dir+'/'+'max_ratioBA.png',
+                               fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_max_ratioBA.png',
+                               sizeX,
+                               sizeY,
+                               fig_dir+'/'+'min_ratioBA.png',
+                               fig_dir+'/'+ 'thumb_'+ str(sizeX) + '_min_ratioBA.png',
+                               sizeX,
+                               sizeY,
+                               ))
+
 
 html.write("""</td>
                     </tr>
@@ -1390,7 +1557,7 @@ html.write("""</td>
               <form action="{0}" method="get" target="_blank">
                  <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
               </form>
-              """.format(fig_dir+'/' + hipass_cat))
+              """.format(hipass_cat))
 
 ### Finish HTML report with generated time stamp
 
@@ -1404,10 +1571,8 @@ html.write("""
               <i> Report bugs to 
               <a href="mailto:biqing.for@icrar.org">Bi-Qing For</a></i>
               </p>
-
               </body>
               </html>""".format(str(datetime.now())))
 
 html.close()
 print ("Spectral line validation report written to '{0}'.".format(html_name))
-                    
