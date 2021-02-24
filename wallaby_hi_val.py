@@ -28,7 +28,6 @@
 # Email: biqing.for [at] icrar.org
 # 
 # Modified Date: 23 Feb 2021 (BQF)
-#
 ################################################################################
 
 import os
@@ -156,6 +155,7 @@ def get_HIPASS(ra, dec):
     if os.path.isfile(hipass_cat):
         os.system('rm '+ hipass_cat)
 
+
     f = open(hipass_cat,'a')
 
     if hicat_result.keys()==[catalogue_hicat]:
@@ -188,6 +188,7 @@ def get_Version(param):
 
     line = subprocess.check_output(['grep', 'Processed with ASKAPsoft', param])
     str_line = line.decode('utf-8')
+
     askapsoft = re.findall('ASKAPsoft\ version\ [0-9].+', str_line)[0].split()[-1]
 
     return askapsoft
@@ -775,7 +776,6 @@ def NoiseRank_histplot(nchan):
     if not glob.glob(file_dir + basename +'*.txt'):
         basename = '/cubeStats-image.restored.' + imagebase + 'MilkyWay.' + field
 
-        
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
               'xtick.labelsize':5,
@@ -812,9 +812,7 @@ def NoiseRank_histplot(nchan):
             # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
             bin_width = 2*iqr(x)*nchan**(-1/3) 
 
-
             # If IQR is zero, most data are zero or masked. Mark beam as bad.            
-
             if bin_width == 0:
                 ID_LABEL.append('bad')
                 axs[i].set_xlim(-1, 1)
@@ -935,12 +933,12 @@ def BeamStat_plot(item, n):
     Plotting and visualising statistics of 36 beams. 
     """
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field
+    basename = '/cubeStats-image.restored.' + imagebase + field  
 
     # use different basename for the Milky Way range
     if not glob.glob(file_dir + basename +'*.txt'):
         basename = '/cubeStats-image.restored.' + imagebase + 'MilkyWay.' + field
-    
+        
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
               'font.size':10}
@@ -1000,6 +998,7 @@ def ResBeam_Stats_plot(n, header_bmaj, header_bmin):
     if not glob.glob(file_dir + basename +'*.txt'):
         basename = '/beamlog.image.restored.' + imagebase + 'MilkyWay.' + field
 
+    
     BEAM_THRESHOLD = []
     
     title1 = 'Restoring beam bmaj standard deviation [arcsec]'
@@ -1205,6 +1204,10 @@ for image in beamMinMax_plots:
     make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
 
+beam_MADMFD_fig, MADMFD_plot = BeamStat_plot('MADMFD', n)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
+make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
+
 bmaj_stdev_fig, bmin_stdev_fig, bmaj_stdev_plot, bmin_stdev_plot, max_ratioBA_fig, min_ratioBA_fig, max_ratioBA_plot, min_ratioBA_plot, beam_threshold = ResBeam_Stats_plot(n, header_bmaj, header_bmin)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ bmaj_stdev_plot
 make_Thumbnail(bmaj_stdev_fig, thumb_img, sizeX, sizeY, fig_dir)
@@ -1219,10 +1222,6 @@ make_Thumbnail(min_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
 #beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
 #thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
 #make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
-
-beam_MADMFD_fig, MADMFD_plot = BeamStat_plot('MADMFD', n)
-thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
-make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
 
 beamExpRMS_fig, beamExpRMS_plot = Beam_ExpRMSplot(BEAM_EXP_RMS, n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ beamExpRMS_plot
