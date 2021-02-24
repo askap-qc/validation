@@ -140,8 +140,10 @@ def get_FIRST(ra, dec):
 
     print ("Retrieving FIRST sources from Vizier. Depending on server connection, this might take a while....")
 
+    catalogue='VIII/92/first14'
+
     Vizier.ROW_LIMIT = -1    
-    v = Vizier(columns=['FIRST', '_RAJ2000', '_DEJ2000', 'p(S)', 'Fpeak', 'Fint', 'Maj', 'Min'], catalog = 'VIII/92/first14', timeout=1000)
+    v = Vizier(columns=['FIRST', '_RAJ2000', '_DEJ2000', 'p(S)', 'Fpeak', 'Fint', 'Maj', 'Min'], catalog = catalogue, timeout=10000)
 #   v = Vizier(columns=['all'], catalog = 'VIII/92/first14')
 
     TOKS_RA = ra.split(":")
@@ -159,8 +161,10 @@ def get_FIRST(ra, dec):
 
     print(first_result)
     first_cat = 'first.txt'
-    print (first_result['VIII/92/first14'],file=open(fig_dir + '/' + first_cat,'w'))
-
+    if first_result.keys()==[catalogue]:
+        print (first_result[catalogue],file=open(fig_dir + '/' + first_cat,'w'))
+    else:
+        print ("No sources found", file=open(fig_dir + '/' + first_cat,'w'))
     return first_cat
 
  
@@ -173,8 +177,10 @@ def get_NVSS(ra, dec):
     from astroquery.vizier import Vizier # for installation: conda install -c astropy astroquery
  
     print ("Retrieving NVSS sources from Vizier. Depending on server connection, this might take a while....")
-    
-    v = Vizier(columns=['NVSS', '_RAJ2000', '_DEJ2000', 'S1.4', 'MajAxis', 'MinAxis'], catalog = 'VIII/65/nvss', timeout=1000)
+
+    catalogue='VIII/65/nvss'
+
+    v = Vizier(columns=['NVSS', '_RAJ2000', '_DEJ2000', 'S1.4', 'MajAxis', 'MinAxis'], catalog = catalogue, timeout=10000)
     v.ROW_LIMIT = -1
 
     TOKS_RA = ra.split(":")
@@ -192,7 +198,10 @@ def get_NVSS(ra, dec):
 
     print(nvss_result) 
     nvss_cat = 'nvss.txt'
-    print (nvss_result['VIII/65/nvss'], file=open(fig_dir + '/' + nvss_cat,'w'))
+    if nvss_result.keys()==[catalogue]:
+        print (nvss_result[catalogue], file=open(fig_dir + '/' + nvss_cat,'w'))
+    else:
+        print ("No sources found", file=open(fig_dir + '/' + nvss_cat,'w'))
 
     return nvss_cat
 
@@ -204,9 +213,11 @@ def get_NVSS(ra, dec):
 #    """
 
 #    print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
+
+#    catalogue='VIII/73/hicat'
     
 #    Vizier.ROW_LIMIT = -1
-#    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = 'VIII/73/hicat', timeout=1000)
+#    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue, timeout=10000)
 
 #    TOKS_RA = ra.split(":")
 #    ra_hr = float(TOKS_RA[0])
@@ -222,7 +233,11 @@ def get_NVSS(ra, dec):
 #    hipass_result = v.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
 
 #    hipass_cat = 'hipass.txt'
-#    print (hipass_result['VIII/73/hicat'], file=open(fig_dir + '/' + hipass_cat,'w'))
+#    if hipass_result.keys() == [catalogue]:
+#        print (hipass_result[catalogue], file=open(fig_dir + '/' + hipass_cat,'w'))
+#    else:
+#        print ("No sources found", file=open(fig_dir + '/' + hipass_cat,'w'))
+
 
 #    return hipass_cat
 
@@ -232,11 +247,10 @@ def get_Version(param):
     Getting the latest ASKAPsoft version that is used for the data reduction.
     """
 
-    line = subprocess.check_output(['tail', '-5', param]) # Grab the last 5 lines
+    line = subprocess.check_output(['grep', 'Processed with ASKAPsoft', param])
     str_line = line.decode('utf-8')
-    newline = str_line.splitlines()[0] # This picks up the first line of the 5 
-    TOKS = newline.split()
-    askapsoft = TOKS[-1]
+    newline = str_line.splitlines()[-1] #Get the most recent, in case there is more than one instance
+    askapsoft = newline.split()[-1]
 
     return askapsoft
         
@@ -523,7 +537,7 @@ def qc_BeamLogs():
     """
   
     file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.' + imagebase + field
+    basename = '/beamlog.image.restored.' + imagebase + '.' + field
     tolerance = [30 - 30 * 0.06, 30 + 30 * 0.06]
 
     QC_BEAMS_LABEL = []
@@ -647,7 +661,7 @@ def FlagStat_plot(FLAGSTAT, n):
     """
 
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field  
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
     
     title = 'Flagged Fraction'
     plot_name = 'FlagStat.png'
@@ -830,7 +844,7 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
 
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
@@ -987,7 +1001,7 @@ def BeamStat_plot(item, n):
     """
 
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + field  
+    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
 
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
