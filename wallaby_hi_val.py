@@ -493,7 +493,7 @@ def qc_BeamLogs(beam_threshold):
 
 =======
     file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.' + imagebase + '.' + field
+    basename = '/beamlog.image.restored.' + imagebase + field
     QC_BEAMS_LABEL = []
     
 >>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
@@ -628,7 +628,7 @@ def FlagStat_plot(FLAGSTAT, n):
 <<<<<<< HEAD
 =======
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
+    basename = '/cubeStats-image.restored.' + imagebase + field  
     
 >>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
     title = 'Flagged Fraction'
@@ -806,12 +806,7 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-<<<<<<< HEAD
-#    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
     basename = '/cubeStats-image.restored.' + imagebase + field
-=======
-    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
 
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
@@ -973,7 +968,7 @@ def BeamStat_plot(item, n):
     Plotting and visualising statistics of 36 beams. 
     """
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
+    basename = '/cubeStats-image.restored.' + imagebase + field  
 
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
@@ -1028,7 +1023,6 @@ def ResBeam_Stats_plot(n, header_bmaj, header_bmin):
     """ 
 
     file_dir = 'SpectralCube_BeamLogs'
-#    basename = '/beamlog.image.restored.' + imagebase + '.' + field
     basename = '/beamlog.image.restored.' + imagebase + field
 
     BEAM_THRESHOLD = []
