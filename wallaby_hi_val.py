@@ -9,7 +9,7 @@
 # -- metadata/mslist-cal*txt
 # -- metadata/mslist-*101.txt
 # -- slurmOutput/*sh
-# -- image.restored.i.SB<SBID>.cube.contsub.fits (optional see comment)
+# -- image.restored.i.SB<SBID>.cube.contsub.fits 
 # -- diagnostics/cubestats-<field>/*txt
 # -- diagnostics/*png
 # -- diagnostics/Flagging_Summaries/*SL.ms.flagSummary
@@ -27,12 +27,8 @@
 # Author: Bi-Qing For
 # Email: biqing.for [at] icrar.org
 # 
-<<<<<<< HEAD
 # Modified Date: 23 Feb 2021 (BQF)
 #
-=======
-# Modified Date:18 Feb 2021 
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
 ################################################################################
 
 import os
@@ -124,7 +120,7 @@ def get_HIPASS(ra, dec):
     """
 
     print ("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while......")
-<<<<<<< HEAD
+
     conf.server = 'vizier.cfa.harvard.edu'
 
     catalogue_hicat ='VIII/73/hicat'
@@ -135,13 +131,6 @@ def get_HIPASS(ra, dec):
     hicat = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue_hicat, vizier_server=conf.server, timeout=10000)
     nhicat = Vizier(columns=['HIPASS', '_RAJ2000', 'DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Q', 'cf', 'ext'], catalog = catalogue_nhicat, vizier_server=conf.server, timeout=10000)
     BGC = Vizier(columns=['HIPASS', 'RAJ2000', 'DEJ2000', 'GLON', 'GLAT', 'ID', 'SPeak', 'e_SPeak', 'FHI', 'e_FHI', 'Vsys', 'e_VSys', 'W50', 'W20', 'VLG', 'logM', 'f_logM'], catalog = catalogue_BGC , vizier_server=conf.server, timeout=10000)
-=======
-
-    catalogue='VIII/73/hicat'
-    
-    Vizier.ROW_LIMIT = -1
-    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog = catalogue, timeout=10000)
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
 
     TOKS_RA = ra.split(":")
     ra_hr = float(TOKS_RA[0])
@@ -167,15 +156,7 @@ def get_HIPASS(ra, dec):
     if os.path.isfile(hipass_cat):
         os.system('rm '+ hipass_cat)
 
-<<<<<<< HEAD
     f = open(hipass_cat,'a')
-=======
-    hipass_cat = 'hipass.txt'
-    if hipass_result.keys()==[catalogue]:
-        print (hipass_result[catalogue], file=open(fig_dir + '/' + hipass_cat,'w'))
-    else:
-        print ('No HIPASS sources within 6 degrees', file=open(fig_dir + '/' + hipass_cat,'w'))
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
 
     if hicat_result.keys()==[catalogue_hicat]:
         f.write('# HICAT; Meyer et al. 2004\n')
@@ -207,12 +188,7 @@ def get_Version(param):
 
     line = subprocess.check_output(['grep', 'Processed with ASKAPsoft', param])
     str_line = line.decode('utf-8')
-<<<<<<< HEAD
     askapsoft = re.findall('ASKAPsoft\ version\ [0-9].+', str_line)[0].split()[-1]
-=======
-    newline = str_line.splitlines()[-1] #Get the most recent, in case there is more than one instance
-    askapsoft = newline.split()[-1]
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
 
     return askapsoft
         
@@ -488,15 +464,8 @@ def qc_BeamLogs(beam_threshold):
     Less than 3% is good for flux error.
     """
     
-<<<<<<< HEAD
     QC_BEAM_LABEL = []
 
-=======
-    file_dir = 'SpectralCube_BeamLogs'
-    basename = '/beamlog.image.restored.' + imagebase + '.' + field
-    QC_BEAMS_LABEL = []
-    
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
     for i in range(0,36):
         b_threshold = beam_threshold[i]  #index 0 corresponds to beam 26 as input threshold is sorted by beam position.  
         if (b_threshold >= 0.05):  
@@ -625,12 +594,6 @@ def FlagStat_plot(FLAGSTAT, n):
     Plotting and visualising flagging statistics of 36 beams. 
     """
 
-<<<<<<< HEAD
-=======
-    file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
-    
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
     title = 'Flagged Fraction'
     plot_name = 'FlagStat.png'
     saved_fig = fig_dir+'/'+plot_name
@@ -806,13 +769,13 @@ def NoiseRank_histplot(nchan):
     plot_name = 'beam_1pctile_hist_SB'+ sbid + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-<<<<<<< HEAD
-#    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
     basename = '/cubeStats-image.restored.' + imagebase + field
-=======
-    basename = '/cubeStats-image.restored.' + imagebase + '.' + field
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
 
+    # use different basename for the Milky Way range
+    if not glob.glob(file_dir + basename +'*.txt'):
+        basename = '/cubeStats-image.restored.' + imagebase + 'MilkyWay.' + field
+
+        
     params = {'axes.labelsize': 6,
               'axes.titlesize':6,
               'xtick.labelsize':5,
@@ -849,10 +812,9 @@ def NoiseRank_histplot(nchan):
             # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
             bin_width = 2*iqr(x)*nchan**(-1/3) 
 
-<<<<<<< HEAD
+
             # If IQR is zero, most data are zero or masked. Mark beam as bad.            
-=======
->>>>>>> 0242d8c7b484c81f2ae7076c53eae2f48924307b
+
             if bin_width == 0:
                 ID_LABEL.append('bad')
                 axs[i].set_xlim(-1, 1)
@@ -973,8 +935,12 @@ def BeamStat_plot(item, n):
     Plotting and visualising statistics of 36 beams. 
     """
     file_dir = diagnostics_dir +'/cubestats-'+ field 
-    basename = '/cubeStats-image.restored.' + imagebase + '.' + field  
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
+    # use different basename for the Milky Way range
+    if not glob.glob(file_dir + basename +'*.txt'):
+        basename = '/cubeStats-image.restored.' + imagebase + 'MilkyWay.' + field
+    
     params = {'axes.labelsize': 10,
               'axes.titlesize':10,
               'font.size':10}
@@ -1028,8 +994,11 @@ def ResBeam_Stats_plot(n, header_bmaj, header_bmin):
     """ 
 
     file_dir = 'SpectralCube_BeamLogs'
-#    basename = '/beamlog.image.restored.' + imagebase + '.' + field
     basename = '/beamlog.image.restored.' + imagebase + field
+
+    # use different basename for the Milky Way range
+    if not glob.glob(file_dir + basename +'*.txt'):
+        basename = '/beamlog.image.restored.' + imagebase + 'MilkyWay.' + field
 
     BEAM_THRESHOLD = []
     
@@ -1145,7 +1114,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob.glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob.glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob.glob('slurmOutput/*.sh'))
-fitsimage = ('image.restored.'+ imagebase + '.contsub.fits')
+fitsimage = ('image.restored.'+ imagebase + 'contsub.fits')
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1236,10 +1205,6 @@ for image in beamMinMax_plots:
     make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
 
-beam_MADMFD_fig, MADMFD_plot = BeamStat_plot('MADMFD', n)
-thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
-make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
-
 bmaj_stdev_fig, bmin_stdev_fig, bmaj_stdev_plot, bmin_stdev_plot, max_ratioBA_fig, min_ratioBA_fig, max_ratioBA_plot, min_ratioBA_plot, beam_threshold = ResBeam_Stats_plot(n, header_bmaj, header_bmin)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ bmaj_stdev_plot
 make_Thumbnail(bmaj_stdev_fig, thumb_img, sizeX, sizeY, fig_dir)
@@ -1254,6 +1219,10 @@ make_Thumbnail(min_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
 #beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
 #thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
 #make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
+
+beam_MADMFD_fig, MADMFD_plot = BeamStat_plot('MADMFD', n)
+thumb_img = 'thumb_'+ str(sizeX) + '_'+ MADMFD_plot
+make_Thumbnail(beam_MADMFD_fig, thumb_img, sizeX, sizeY, fig_dir)
 
 beamExpRMS_fig, beamExpRMS_plot = Beam_ExpRMSplot(BEAM_EXP_RMS, n)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ beamExpRMS_plot
