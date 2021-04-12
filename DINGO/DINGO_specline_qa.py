@@ -21,7 +21,7 @@
 #
 # To run:
 #
-# python DINGO_specline_qa.py
+# python DINGO_specline_qa.py -s 10991 -c
 #
 # Originally Written for ASKAP Wallaby data validation by Bi-Qing For
 # Version Modified on 24 March 2020
@@ -30,6 +30,7 @@
 # Modified on 1 September 2020
 # Changed to add continuum residual test part for ASKAP DINGO specral line data
 # validation by Jonghwan Rhee (Modified on 25 September 2020)
+# Updated on 12 April 2021 by Jonghwan Rhee
 #
 ################################################################################
 
@@ -353,7 +354,7 @@ def get_Metadata(metafile):
 
 def get_Metadata_processed(metafile_science):
     """ Get basic information on processed data.
-        number of channel, channel width, bandwidth and central frequency
+        number of channel, channel width, bandwidth and central frequency, band
 
     Parameters
     ----------
@@ -365,6 +366,7 @@ def get_Metadata_processed(metafile_science):
     chan_width: channel width (in kHz)
     bw: bandwidth of processed data
     cfreq: central frequency of processed data
+    band: ASKAP band (1/2)
     """
     with open(metafile_science, 'r') as f:
         for line in f.readlines():
@@ -374,7 +376,11 @@ def get_Metadata_processed(metafile_science):
                 bw = float(line.split()[11]) / 1000.    # in MHz
                 cfreq = line.split()[12]    # in MHz
 
-    return nchan, chan_width, bw, cfreq
+    if float(cfreq) < 1150.:
+        band = 1
+    else:
+        band = 2
+    return nchan, chan_width, bw, cfreq, band
 
 
 def get_frequency_range(cubestat_contsub):
@@ -558,14 +564,22 @@ def qc_Bad_Chans(infile, med_madfm):
     return n_bad_chan, mosaic_bad_chan, QC_badchan_id
 
 
-def cal_Theoretical_RMS(n_ant, tobs, chan_width):
+def cal_Theoretical_RMS(n_ant, tobs, chan_width, band):
     """
     Calculating the theoretical rms noise for ASKAP.
     Assuming natural weighting and not taking into account fraction of flagged data.
+    For band 1, Tsys/eta = 75 K @ 1018.5 MHz is assumed based on ASKAP tsys measurements
+    For band 2, Tsys/eta = 69 K @ 1367.5 MHz is assumed based on ASKAP tsys measurements
     """
 
-    #tsys = 52       # K
-    tsys = 48.3       # K
+    if band == 1:
+        tsys = 52.6       # K
+    elif band == 2:
+        tsys = 48.3       # K
+    else:
+        print('Your band is not available')
+        sys.exit(1)
+
     antdiam = 12    # m
     aper_eff = 0.7  # aperture efficiency
     coreff = 0.8    # correlator efficiency
@@ -602,7 +616,7 @@ def cal_Beam_ExpRMS(FLAGSTAT, t_rms):
     return BEAM_EXP_RMS
 
 
-def qc_BeamLogs(field):
+def qc_BeamLogs(field, band):
     """ Evaluate if the synthesized beam deviate from the tolerance range
         (+/-0.05 % of the nominal 30 arcsec which is currently set up).
         Note that bmaj and bmin for the first few channels are always zero
@@ -614,7 +628,13 @@ def qc_BeamLogs(field):
     """
     file_dir = diagnostics_dir + '/cubestats-' + field
     basename = '/beamlog.image.restored.' + imagebase + field
-    tolerance = [30 - 30 * 0.006, 30 + 30 * 0.006]
+    if band == 1:
+        tolerance = [20, 21]
+    elif band == 2:
+        tolerance = [30 - 30 * 0.006, 30 + 30 * 0.006]
+    else:
+        print('Your band is not available')
+        sys.exit(1)
 
     QC_BEAMS_LABEL = []
 
@@ -1205,8 +1225,8 @@ def rebin_spec(x, y, bin_size, method):
 warnings.simplefilter('ignore', AstropyWarning)
 
 parser = ArgumentParser(description='Run DINGO validation and produce an HTML report')
-parser.add_argument('-s','--sbid', dest='sbid',required='true',help='Science SBID',type=str)
-parser.add_argument('-i','--imagebase', dest='imagebase',default='i.SB%s.cube',help='Base string for images [default=%default]',type=str)
+parser.add_argument('-s','--sbid', dest='sbid', required='true', help='Science SBID', type=str)
+parser.add_argument('-i','--imagebase', dest='imagebase', default='i.SB%s.cube', help='Base string for images [default=%default]', type=str)
 parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
 options = parser.parse_args()
 
@@ -1243,7 +1263,7 @@ else:
 # Get observation information from metadata
 info_metadata = get_Metadata(metafile)
 askapsoft = get_version(param)
-nchan, chan_width, bw, cfreq = get_Metadata_processed(metafile_science)
+nchan, chan_width, bw, cfreq, band = get_Metadata_processed(metafile_science)
 tobs_hr = info_metadata['tobs_hr']
 chan_width_kHz = chan_width
 field_names = [info_metadata['field_0'][1], info_metadata['field_1'][1]]
@@ -1276,13 +1296,13 @@ for i in range(info_metadata['nfields']):
     if beams is None:
         bmaj, bmin = get_beaminfo(beamlogs_file[i])
         beams = [(bmaj, bmin)]
-        theoretical_rms = [(cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3)) * 1e3]
+        theoretical_rms = [(cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3, band)) * 1e3]
         ra_cen = [info_metadata['field_'+str(i)][2]]
         dec_cen = [info_metadata['field_'+str(i)][3]]
 
     else:
         beams.append(get_beaminfo(beamlogs_file[i]))
-        theoretical_rms.append((cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3)) * 1e3)
+        theoretical_rms.append((cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3, band)) * 1e3)
         ra_cen.append(info_metadata['field_'+str(i)][2])
         dec_cen.append(info_metadata['field_'+str(i)][3])
 
@@ -1589,12 +1609,12 @@ thumb_img_B = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_B
 make_Thumbnail(beam_1pctile_QCfig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
 # Check synthesized beam size of each beam for different interleaves
-list_beams_id_label_A = qc_BeamLogs(field_names[0])
+list_beams_id_label_A = qc_BeamLogs(field_names[0], band)
 BeamLogs_QCfig_A, BeamLogs_QCplot_A = BeamLogs_QCplot(list_beams_id_label_A, field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_A
 make_Thumbnail(BeamLogs_QCfig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 
-list_beams_id_label_B = qc_BeamLogs(field_names[1])
+list_beams_id_label_B = qc_BeamLogs(field_names[1], band)
 BeamLogs_QCfig_B, BeamLogs_QCplot_B = BeamLogs_QCplot(list_beams_id_label_B, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_B
 make_Thumbnail(BeamLogs_QCfig_B, thumb_img_B, sizeX, sizeY, fig_dir)
