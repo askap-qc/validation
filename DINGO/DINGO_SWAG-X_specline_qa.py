@@ -13,15 +13,15 @@
 # -- diagnostics/cubestats-<field>/*txt
 # -- diagnostics/*png
 # -- diagnostics/Flagging_Summaries/*SL.ms.flagSummary
-# (below two are required only for continuum residaul tests)
+#   (below two are required only for continuum residaul tests)
 # -- image.restored.i.SB_ID.cube.contsub.fits
 # -- selavy-cont-image*restored/selavy-image*islands.xml'
 #
-# Output files: all saved in /validation_spectral/Figures directory.
+# Output files: all saved in Figures directory.
 #
 # To run:
 #
-# python DINGO_specline_qa.py -s 10991 -c
+# python DINGO_SWAG-X_specline_qa.py -s 20506 -c 
 #
 # Originally Written for ASKAP Wallaby data validation by Bi-Qing For
 # Version Modified on 24 March 2020
@@ -30,7 +30,7 @@
 # Modified on 1 September 2020
 # Changed to add continuum residual test part for ASKAP DINGO specral line data
 # validation by Jonghwan Rhee (Modified on 25 September 2020)
-# Updated on 12 April 2021 by Jonghwan Rhee
+# Updated on 15 May 2021 by Jonghwan Rhee
 #
 ################################################################################
 
@@ -223,14 +223,14 @@ def get_HIPASS(pos_cen, dRA, dDec):
     print("Retrieving HIPASS sources from Vizier. Depending on server connection, this might take a while....")
 
     Vizier.ROW_LIMIT = -1
-    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog='VIII/73/hicat', timeout=1000)
+    v = Vizier(columns=['HIPASS', '_RAJ2000', '_DEJ2000', 'RVsp', 'Speak', 'Sint', 'RMS', 'Qual'], catalog='VIII/73/hicat')
 
     hipass_result = v.query_region(SkyCoord(ra=pos_cen[0], dec=pos_cen[1], unit=(u.deg, u.deg), frame='icrs'), width=[dRA * u.deg], height=[dDec * u.deg])
 
     hipass_cat = 'hipass.txt'
     #hipass_result['VIII/73/hicat'].write(fig_dir + '/' + hipass_cat, format='ascii.fixed_width', delimiter=' ')
     with open(fig_dir + '/' + hipass_cat, 'w') as f:
-        print(hipass_result['VIII/73/hicat'], file=f)
+        print(hipass_result[0], file=f)
 
     return hipass_cat
 
@@ -355,7 +355,7 @@ def get_Metadata(metafile):
 
 def get_Metadata_processed(metafile_science):
     """ Get basic information on processed data.
-        number of channel, channel width, bandwidth and central frequency, band
+        number of channel, channel width, bandwidth and central frequency
 
     Parameters
     ----------
@@ -628,7 +628,7 @@ def qc_BeamLogs(field, band):
     field: name of an interleaving field
     """
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/beamlog.image.restored.' + imagebase + field
+    basename = '/beamlog.image.restored.i.SB' + sbid + '.cube.' + field
     if band == 1:
         tolerance = [20, 21]
     elif band == 2:
@@ -686,7 +686,7 @@ def FlagStat_plot(FLAGSTAT, field):
     """
     # set inputs (path to inputs and output file names)
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.' + imagebase + field
+    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
 
     title = 'Flagged Data Fraction (' + field + ')'
     plot_name = 'FlagStat_' + field+ '.png'
@@ -702,19 +702,19 @@ def FlagStat_plot(FLAGSTAT, field):
     # plot fraction of flagged data for each beam
     fig = plt.figure(1)
     ax = fig.add_subplot(111, aspect='equal')
-    offsets = footprint('square_6x6')
+    offsets = footprint('closepack36')
 
     for i in range(36):
         x0, y0 = offsets[i]
-        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20b', edgecolors='k', vmin=0, vmax=100)
+        plt.scatter([x0], [y0], s=1500, c=[FLAGSTAT[i]], cmap='tab20b', ec='k', vmin=0, vmax=100)
         plt.text(x0, y0, '%d'%i, fontsize=12, va='center', ha='center')
 
     [i.set_linewidth(1.5) for i in ax.spines.values()]
     ax.tick_params(axis='both', which='both', bottom=False, top=False,
                     right=False, left=False, labelbottom=False, labelleft=False)
     ax.set_title(title)
-    ax.set_xlim(-3.2, 3.2)
-    ax.set_ylim(-3.2, 3.2)
+    ax.set_xlim(-3.5, 3.5)
+    ax.set_ylim(-3.5, 3.5)
 
     cb = plt.colorbar(pad=0.02)
     cb.set_label('Percentage (%)')
@@ -754,7 +754,7 @@ def Beam_ExpRMSplot(BEAM_EXPRMS, field):
     fig = plt.figure(1)
     ax = fig.add_subplot(111, aspect='equal')
 
-    offsets = footprint('square_6x6')
+    offsets = footprint('closepack36')
     VMIN = round(np.min(BEAM_EXPRMS), 1)
     VMAX = round(np.max(BEAM_EXPRMS), 1)
 
@@ -768,8 +768,8 @@ def Beam_ExpRMSplot(BEAM_EXPRMS, field):
     plt.tick_params(axis='both', which='both', bottom=False, top=False,
                     right=False, left=False, labelbottom=False, labelleft=False)
     ax.set_title(title)
-    ax.set_xlim(-3.2, 3.2)
-    ax.set_ylim(-3.2, 3.2)
+    ax.set_xlim(-3.5, 3.5)
+    ax.set_ylim(-3.5, 3.5)
 
     cb = plt.colorbar(pad=0.02)
     cb.set_label('mJy / beam')
@@ -813,7 +813,7 @@ def BeamLogs_QCplot(list_beams_id_label, field):
     # plot QC signals for each beam
     fig = plt.figure(1)
     ax = fig.add_subplot(111, aspect='equal')
-    offsets = footprint('square_6x6')
+    offsets = footprint('closepack36')
 
     for i in range(36):
         x0, y0 = offsets[i]
@@ -823,7 +823,7 @@ def BeamLogs_QCplot(list_beams_id_label, field):
         else:
             color_code = '#df2525'
 
-        plt.scatter(x0, y0, s=1500, c=color_code, edgecolors='k')
+        plt.scatter(x0, y0, s=1500, c=color_code, ec='k')
         plt.text(x0, y0, '%d'%i, fontsize=12, va='center', ha='center')
 
     for key in legend_dict:
@@ -831,8 +831,8 @@ def BeamLogs_QCplot(list_beams_id_label, field):
         patchList.append(data_key)
 
     [i.set_linewidth(1.5) for i in ax.spines.values()]
-    ax.set_xlim(-3.2, 3.2)
-    ax.set_ylim(-3.2, 3.2)
+    ax.set_xlim(-3.5, 3.5)
+    ax.set_ylim(-3.5, 3.5)
     ax.tick_params(axis='both', which='both', bottom=False, top=False,
                     right=False, left=False, labelbottom=False, labelleft=False)
     ax.set_title('Beam Logs (' + field + ')')
@@ -859,7 +859,7 @@ def BeamStat_plot(item, field):
     """
 
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.' + imagebase + field
+    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
 
     params = {'axes.labelsize': 10,
               'axes.titlesize': 10,
@@ -887,7 +887,7 @@ def BeamStat_plot(item, field):
     # plot beam stats for each beam
     fig = plt.figure(1)
     ax = fig.add_subplot(111, aspect='equal')
-    offsets = footprint('square_6x6')
+    offsets = footprint('closepack36')
 
     beamstat_all = []
     for i in range(36):
@@ -916,8 +916,8 @@ def BeamStat_plot(item, field):
     plt.tick_params(axis='both', which='both', bottom=False, top=False,
                     right=False, left=False, labelbottom=False, labelleft=False)
     ax.set_title(title)
-    ax.set_xlim(-3.2, 3.2)
-    ax.set_ylim(-3.2, 3.2)
+    ax.set_xlim(-3.5, 3.5)
+    ax.set_ylim(-3.5, 3.5)
 
     cb = plt.colorbar(pad=0.02)
     cb.ax.tick_params(labelsize=10)
@@ -966,7 +966,7 @@ def NoiseRank_histplot(nchan, field):
     plot_name = 'beam_1pctile_hist_SB' + sbid + '_' + field + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.' + imagebase + field
+    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
 
     params = {'axes.labelsize': 12,
               'axes.titlesize': 10,
@@ -1055,7 +1055,7 @@ def NoiseRank_QCplot(list_id_label, field):
     # plot noise rank for each beam
     fig = plt.figure(1)
     ax = fig.add_subplot(111, aspect='equal')
-    offsets = footprint('square_6x6')
+    offsets = footprint('closepack36')
 
     for i in range(36):
         x0, y0 = offsets[i]
@@ -1074,8 +1074,8 @@ def NoiseRank_QCplot(list_id_label, field):
         patchList.append(data_key)
 
     [i.set_linewidth(1.5) for i in ax.spines.values()]
-    ax.set_xlim(-3.2, 3.2)
-    ax.set_ylim(-3.2, 3.2)
+    ax.set_xlim(-3.5, 3.5)
+    ax.set_ylim(-3.5, 3.5)
 
     plt.legend(handles=patchList, ncol=3, loc='lower left', frameon=False, mode='expand', bbox_to_anchor=(0., -0.08, 1.0, 0.8), borderaxespad=0.)
     plt.tick_params(axis='both', which='both', bottom=False, top=False,
@@ -1116,7 +1116,7 @@ def remove_outliers(x):
 
     Parameters
     ----------
-    x: an extracted spectra array (freq, source)
+    x: extracted spectra array (freq, source)
 
     Returns
     -------
@@ -1225,7 +1225,7 @@ def rebin_spec(x, y, bin_size, method):
 # ignore astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
 
-parser = ArgumentParser(description='Run DINGO validation and produce an HTML report')
+parser = ArgumentParser(description='Run DINGO SWAG-X validation and produce an HTML report')
 parser.add_argument('-s','--sbid', dest='sbid', required='true', help='Science SBID', type=str)
 parser.add_argument('-i','--imagebase', dest='imagebase', default='i.SB%s.cube', help='Base string for images [default=%default]', type=str)
 parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
@@ -1234,14 +1234,14 @@ options = parser.parse_args()
 # Switch to run contsub test
 do_contsub_test = options.contsubTest
 
-# Set file names and directories
+# Set directories and file names
 diagnostics_dir = 'diagnostics'
 fig_dir = 'Figures'
 sbid = options.sbid
 html_name = 'index.html'
 
 imagebase=options.imagebase + '.'
-imagebase=imagebase.replace('%s',sbid)
+imagebase=imagebase.replace('%s', sbid)
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir -p ' + fig_dir)
@@ -1250,7 +1250,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob('slurmOutput/*.sh'))
-beamlogs_file = sorted(glob('diagnostics/cubestats-*/beamlog*beam00.txt'))
+beamlogs_file = sorted(glob('./diagnostics/cubestats-*/beamlog.image.restored.i.SB' + sbid + '.cube.eFEDS*beam00.txt'))
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1267,7 +1267,7 @@ askapsoft = get_version(param)
 nchan, chan_width, bw, cfreq, band = get_Metadata_processed(metafile_science)
 tobs_hr = info_metadata['tobs_hr']
 chan_width_kHz = chan_width
-field_names = [info_metadata['field_0'][1], info_metadata['field_1'][1]]
+field_names = [info_metadata['field_0'][1], info_metadata['field_1'][1], info_metadata['field_2'][1]]
 
 # Calculate on-source time for each interleaving field
 dat_count = []
@@ -1281,7 +1281,7 @@ else:
     t_int.append(tobs_hr)
 
 # mosaic contsub statistic
-cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-*/cubeStats*linmos.contsub.txt'))
+cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-*/cubeStats*.i.*.cube.*linmos.txt'))
 cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*cube.contsub.txt'))
 
 # get frequency information
@@ -1314,7 +1314,7 @@ n_bad_chan, mosaic_bad_chan, QC_badchan_id = qc_Bad_Chans(cubestat_linmos_contsu
 # Calculate the center of all the interleaves
 dec_cen = convert_dec_coords(dec_cen)
 field_cen = get_field_center(ra_cen, dec_cen)
-size_ra, size_dec = 5.5, 5.5
+size_ra, size_dec = 6, 5
 hipass_cat = get_HIPASS(field_cen, size_ra, size_dec)
 
 # Flagging statistic for spectral line
@@ -1322,16 +1322,20 @@ flagging_file = sorted(glob('diagnostics/Flagging_Summaries/*SL.ms.flagSummary')
 
 FLAG_STAT_A = []
 FLAG_STAT_B = []
+FLAG_STAT_C = []
 
 for i, flag_file in enumerate(flagging_file):
     flag_stat = get_Flagging(flag_file)
     if i < 36:
         FLAG_STAT_A.append(flag_stat)
-    else:
+    elif (i >= 36) & (i < 72):
         FLAG_STAT_B.append(flag_stat)
+    else:
+        FLAG_STAT_C.append(flag_stat)
 
 BEAM_EXP_RMS_A = cal_Beam_ExpRMS(FLAG_STAT_A, theoretical_rms[0])
 BEAM_EXP_RMS_B = cal_Beam_ExpRMS(FLAG_STAT_B, theoretical_rms[1])
+BEAM_EXP_RMS_C = cal_Beam_ExpRMS(FLAG_STAT_C, theoretical_rms[2])
 
 
 ################################################################################
@@ -1339,7 +1343,7 @@ BEAM_EXP_RMS_B = cal_Beam_ExpRMS(FLAG_STAT_B, theoretical_rms[1])
 if do_contsub_test:
 
     # Input files
-    selavy_file = glob('./selavy-cont-image*restored/selavy-image*islands.xml')[0]
+    selavy_file = glob('./selavy-cont-image*restored.conv/selavy-image*islands.xml')[0]
     fitscube = glob('image.restored.' + imagebase + 'contsub.fits')[0]
 
     # Read selavy continuum catalogue
@@ -1380,14 +1384,14 @@ if do_contsub_test:
     spec = extract_spec(pix_all, fitscube)
 
     # Make frequency array
-    chan = np.arange(hd['NAXIS4'])
+    chan = np.arange(hd['CRVAL4'])
     freq = (hd['CRVAL4'] + chan * hd['CDELT4']) * 1e-6    # in MHz
 
     # Cut out the edges of spectra that have some artefacts
     spec = spec[256:6689,:]
     freq = freq[256:6689]
 
-    # Mark out outliers from the extracted spectra
+    # Mask out outliers from the extract spectra
     spec2 = remove_outliers(spec)
 
     # Calculate mean and std of spectra
@@ -1420,7 +1424,6 @@ if do_contsub_test:
     for i, ax in enumerate(axs.flat):
         ax.plot(freq, spec[:,i], color=cmap[0])
         [i.set_linewidth(1.2) for i in ax.spines.values()]
-        ax.set_ylim(-15, 15)
         if (i % 2 == 0) and (i < 10):
             ax.set_ylabel('Flux (mJy/beam)')
             ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
@@ -1493,11 +1496,6 @@ if do_contsub_test:
         ax.plot(freq_rebin['bin_size:64'], spec_rebin['bin_size:64'][:,i]/np.sqrt(64), color=cmap[3],     label=r'N$_{\rm sum}$=64')
         ax.plot(freq_rebin['bin_size:256'], spec_rebin['bin_size:256'][:,i]/np.sqrt(256), color=cmap[4],     label=r'N$_{\rm sum}$=256')
         ax.plot(freq_rebin['bin_size:1024'], spec_rebin['bin_size:1024'][:,i]/np.sqrt(1024), color=cmap[5],     label=r'N$_{\rm sum}$=1024')
-        y_min = np.nanmin(spec_rebin['bin_size:1024'][:,i])/np.sqrt(1024)
-        y_max = np.nanmax(spec_rebin['bin_size:1024'][:,i])/np.sqrt(1024)
-        y_lim = max(abs(y_min), abs(y_max)) + 5.0
-        ax.set_ylim(-y_lim, y_lim)
-
         [i.set_linewidth(1.2) for i in ax.spines.values()]
         if (i % 2 == 0) and (i < 10):
             ax.set_ylabel('Flux (mJy/beam)')
@@ -1526,10 +1524,10 @@ if do_contsub_test:
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob(diagnostics_dir + '/cubestats-G*/*linmos*.png'))  # Mosaic statistic
-cube_plots_final = sorted(glob(diagnostics_dir + '/cubePlot*.png'))  # Final Mosaic statistic
-beamNoise_plots = sorted(glob(diagnostics_dir + '/beamNoise*.png'))  # beam-by-beam statistic
-beamMinMax_plots = sorted(glob(diagnostics_dir + '/beamMinMax*.png'))  # beam-by-beam statistic
+cube_plots = sorted(glob(diagnostics_dir + '/cubestats-eFEDS*/cubePlot*.i.*.cube.*linmos*.png'))  # Mosaic statistic
+cube_plots_final = sorted(glob(diagnostics_dir + '/cubePlot*.i.*.cube.*'))  # Final Mosaic statistic
+beamNoise_plots = sorted(glob(diagnostics_dir + '/beamNoise*.i.*.cube.*.png'))  # beam-by-beam statistic
+beamMinMax_plots = sorted(glob(diagnostics_dir + '/beamMinMax*.i.*.cube.*.png'))  # beam-by-beam statistic
 
 thumb_cubeplots = []
 thumb_cubeplots_final = []
@@ -1574,6 +1572,10 @@ beam_MADMFD_fig_B, MADMFD_plot_B = BeamStat_plot('MADMFD', field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + MADMFD_plot_B
 make_Thumbnail(beam_MADMFD_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
+beam_MADMFD_fig_C, MADMFD_plot_C = BeamStat_plot('MADMFD', field_names[2])
+thumb_img_C = 'thumb_' + str(sizeX) + '_' + MADMFD_plot_C
+make_Thumbnail(beam_MADMFD_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
+
 # Measured median RMS of each beam for different interleaves
 beam_Med_RMS_fig_A, MedRMS_plot_A = BeamStat_plot('Med_RMS', field_names[0])
 thumb_img_A = 'thumb_'+ str(sizeX) + '_'+ MedRMS_plot_A
@@ -1582,6 +1584,10 @@ make_Thumbnail(beam_Med_RMS_fig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 beam_Med_RMS_fig_B, MedRMS_plot_B = BeamStat_plot('Med_RMS', field_names[1])
 thumb_img_B = 'thumb_'+ str(sizeX) + '_'+ MedRMS_plot_B
 make_Thumbnail(beam_Med_RMS_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
+
+beam_Med_RMS_fig_C, MedRMS_plot_C = BeamStat_plot('Med_RMS', field_names[2])
+thumb_img_C = 'thumb_'+ str(sizeX) + '_'+ MedRMS_plot_C
+make_Thumbnail(beam_Med_RMS_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
 # Expected RMS of each beam for different interleaves
 beamExpRMS_fig_A, beamExpRMS_plot_A = Beam_ExpRMSplot(BEAM_EXP_RMS_A, field_names[0])
@@ -1592,6 +1598,10 @@ beamExpRMS_fig_B, beamExpRMS_plot_B = Beam_ExpRMSplot(BEAM_EXP_RMS_B, field_name
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + beamExpRMS_plot_B
 make_Thumbnail(beamExpRMS_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
+beamExpRMS_fig_C, beamExpRMS_plot_C = Beam_ExpRMSplot(BEAM_EXP_RMS_C, field_names[2])
+thumb_img_C = 'thumb_' + str(sizeX) + '_' + beamExpRMS_plot_C
+make_Thumbnail(beamExpRMS_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
+
 # Measured 1 percentile noise of each beam for different interleaves
 beam_1pctile_histfig_A, onepctile_plot_A, list_id_label_A = NoiseRank_histplot(float(nchan), field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + onepctile_plot_A
@@ -1601,6 +1611,10 @@ beam_1pctile_histfig_B, onepctile_plot_B, list_id_label_B = NoiseRank_histplot(f
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + onepctile_plot_B
 make_Thumbnail(beam_1pctile_histfig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
+beam_1pctile_histfig_C, onepctile_plot_C, list_id_label_C = NoiseRank_histplot(float(nchan), field_names[2])
+thumb_img_C = 'thumb_' + str(sizeX) + '_' + onepctile_plot_C
+make_Thumbnail(beam_1pctile_histfig_C, thumb_img_C, sizeX, sizeY, fig_dir)
+
 beam_1pctile_QCfig_A, onepctile_QCplot_A = NoiseRank_QCplot(list_id_label_A, field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_A
 make_Thumbnail(beam_1pctile_QCfig_A, thumb_img_A, sizeX, sizeY, fig_dir)
@@ -1608,6 +1622,10 @@ make_Thumbnail(beam_1pctile_QCfig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 beam_1pctile_QCfig_B, onepctile_QCplot_B = NoiseRank_QCplot(list_id_label_B, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_B
 make_Thumbnail(beam_1pctile_QCfig_B, thumb_img_B, sizeX, sizeY, fig_dir)
+
+beam_1pctile_QCfig_C, onepctile_QCplot_C = NoiseRank_QCplot(list_id_label_C, field_names[2])
+thumb_img_C = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_C
+make_Thumbnail(beam_1pctile_QCfig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
 # Check synthesized beam size of each beam for different interleaves
 list_beams_id_label_A = qc_BeamLogs(field_names[0], band)
@@ -1620,6 +1638,11 @@ BeamLogs_QCfig_B, BeamLogs_QCplot_B = BeamLogs_QCplot(list_beams_id_label_B, fie
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_B
 make_Thumbnail(BeamLogs_QCfig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
+list_beams_id_label_C = qc_BeamLogs(field_names[2], band)
+BeamLogs_QCfig_C, BeamLogs_QCplot_C = BeamLogs_QCplot(list_beams_id_label_C, field_names[2])
+thumb_img_C = 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_C
+make_Thumbnail(BeamLogs_QCfig_C, thumb_img_C, sizeX, sizeY, fig_dir)
+
 # Check flagged data fraction of each beam for different interleaves
 Flagged_fig_A, Flagged_plot_A = FlagStat_plot(FLAG_STAT_A, field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + Flagged_plot_A
@@ -1629,6 +1652,10 @@ Flagged_fig_B, Flagged_plot_B = FlagStat_plot(FLAG_STAT_B, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + Flagged_plot_B
 make_Thumbnail(Flagged_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
+Flagged_fig_C, Flagged_plot_C = FlagStat_plot(FLAG_STAT_C, field_names[2])
+thumb_img_C = 'thumb_' + str(sizeX) + '_' + Flagged_plot_C
+make_Thumbnail(Flagged_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
+plt.close('all')
 
 
 ################################################################################
@@ -1678,8 +1705,8 @@ html.write("""<!DOCTYPE HTML>
                     </head>
                     <body>
                     <center>
-                    <title>ASKAP DINGO Spectral Line Data Validation Report</title>
-                    <h1 align="middle">DINGO Spectral Line Data Validation Report</h1>
+                    <title>ASKAP Spectral Line Data Validation Report</title>
+                    <h1 align="middle">SWAG-X Spectral Line Data Validation Report</h1>
                     """ % (css_style))
 
 # Observations
@@ -1691,7 +1718,7 @@ html.write("""<h2 align="middle">Observation</h2>
                         <th>Obs Start Date/Time</th>
                         <th>Obs End Date/Time</th>
                         <th>Duration<br>(hr)</th>
-                        <th>Field</th>
+                        <th>Fields</th>
                         <th>R.A.</th>
                         <th>Decl.</th>
                         <th>Total Bandwidth <br>(MHz)</th>
@@ -1702,20 +1729,23 @@ html.write("""<h2 align="middle">Observation</h2>
                         <td>{2}</td>
                         <td>{3}</td>
                         <td>{4:.2f}</td>
-                        <td>{5}</br>{6}</td>
-                        <td>{7}</br>{8}</td>
-                        <td>{9}</br>{10}</td>
-                        <td>{11}""".format(sbid,
+                        <td>{5}</br>{6}</br>{7}</td>
+                        <td>{8}</br>{9}</br>{10}</td>
+                        <td>{11}</br>{12}</br>{13}</td>
+                        <td>{14}""".format(sbid,
                                           info_metadata['n_ant'],
                                           info_metadata['start_obs_date'],
                                           info_metadata['end_obs_date'],
                                           info_metadata['tobs_hr'],
                                           field_names[0],
                                           field_names[1],
+                                          field_names[2],
                                           ra_cen[0],
                                           ra_cen[1],
+                                          ra_cen[2],
                                           dec_cen[0],
                                           dec_cen[1],
+                                          dec_cen[2],
                                           info_metadata['total_obs_bw']))
 
 # Processed data
@@ -1739,8 +1769,8 @@ html.write("""</td>
                         <td>{4}</td>
                         <td>{5}</td>
                         <td>{6}</td>
-                        <td>{7:.2f}&nbsp;&times;&nbsp;{8:.2f}&nbsp;(A)</br>{9:.2f}&nbsp;&times;&nbsp;{10:.2f}&nbsp;(B)</td>
-                        <td>{11:.2f}&nbsp;(A)</br>{12:.2f}&nbsp;(B)</td>
+                        <td>{7:.2f}&nbsp;&times;&nbsp;{8:.2f}&nbsp;(A)</br>{9:.2f}&nbsp;&times;&nbsp;{10:.2f}&nbsp;(B)</br>{11:.2f}&nbsp;&times;&nbsp;{12:.2f}&nbsp;(C)</td>
+                        <td>{13:.2f}&nbsp;(A)</br>{14:.2f}&nbsp;(B)</br>{15:.2f}&nbsp;(C)</td>
                         """.format(askapsoft,
                                    str(start_freq),
                                    str(end_freq),
@@ -1752,8 +1782,11 @@ html.write("""</td>
                                    beams[0][1],
                                    beams[1][0],
                                    beams[1][1],
+                                   beams[2][0],
+                                   beams[2][1],
                                    t_int[0],
-                                   t_int[1]))
+                                   t_int[1],
+                                   t_int[2]))
 
 # beam logs, flagging, rms expectation
 html.write("""</td>
@@ -1761,36 +1794,45 @@ html.write("""</td>
                     </table>
                     <table width="100%" border="1">
                     <tr>
-                        <th>Beam Logs (A/B)</th>
-                        <th>Flagged Data Fraction (A/B)</th>
-                        <th>Expected RMS (A/B)</th>
+                        <th>Beam Logs (A/B/C)</th>
+                        <th>Flagged Data Fraction (A/B/C)</th>
+                        <th>Expected RMS (A/B/C)</th>
                     </tr>
                     <tr align="middle">
                         <td>
                         <a href="{2}" target="_blank"><img src="{3}" width="{0}" height="{1}" alt="thumbnail"></a>
                         <a href="{4}" target="_blank"><img src="{5}" width="{0}" height="{1}" alt="thumbnail"></a>
-                        </td>
-                        <td>
                         <a href="{6}" target="_blank"><img src="{7}" width="{0}" height="{1}" alt="thumbnail"></a>
-                        <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
                         </td>
                         <td>
+                        <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
                         <a href="{10}" target="_blank"><img src="{11}" width="{0}" height="{1}" alt="thumbnail"></a>
                         <a href="{12}" target="_blank"><img src="{13}" width="{0}" height="{1}" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="{14}" target="_blank"><img src="{15}" width="{0}" height="{1}" alt="thumbnail"></a>
+                        <a href="{16}" target="_blank"><img src="{17}" width="{0}" height="{1}" alt="thumbnail"></a>
+                        <a href="{18}" target="_blank"><img src="{19}" width="{0}" height="{1}" alt="thumbnail"></a>
                         """.format(sizeX,
                                    sizeY,
                                    BeamLogs_QCfig_A,
                                    fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_A,
                                    BeamLogs_QCfig_B,
                                    fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_B,
+                                   BeamLogs_QCfig_C,
+                                   fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_C,
                                    Flagged_fig_A,
                                    fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + Flagged_plot_A,
                                    Flagged_fig_B,
                                    fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + Flagged_plot_B,
+                                   Flagged_fig_C,
+                                   fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + Flagged_plot_C,
                                    beamExpRMS_fig_A,
                                    fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + beamExpRMS_plot_A,
                                    beamExpRMS_fig_B,
-                                   fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + beamExpRMS_plot_B))
+                                   fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + beamExpRMS_plot_B,
+                                   beamExpRMS_fig_C,
+                                   fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + beamExpRMS_plot_C))
 
 # Image statistics (beam-based)
 html.write("""</td>
@@ -1807,59 +1849,77 @@ html.write("""</td>
                     <td>
                     <a href="{2}" target="_blank"><img src="{3}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{4}" target="_blank"><img src="{5}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>Min, Max, 1 percentile (A/B)</p>
-                    </td>
-                    <td>
                     <a href="{6}" target="_blank"><img src="{7}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>Min, Max, 1 percentile (A/B)</p>
+                    <br><p>Min, Max, 1 percentile (A/B/C)</p>
                     </td>
                     <td>
+                    <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{10}" target="_blank"><img src="{11}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{12}" target="_blank"><img src="{13}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>Min, Max, 1 percentile (A/B)</p>
+                    <br><p>Min, Max, 1 percentile (A/B/C)</p>
                     </td>
-                    <tr align="middle">
                     <td>
                     <a href="{14}" target="_blank"><img src="{15}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{16}" target="_blank"><img src="{17}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>Stdev, MADFM (A/B)</p>
-                    </td>
-                    <td>
                     <a href="{18}" target="_blank"><img src="{19}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <a href="{20}" target="_blank"><img src="{21}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>Stdev, MADFM (A/B)</p>
+                    <br><p>Min, Max, 1 percentile (A/B/C)</p>
                     </td>
+                    <tr align="middle">
                     <td>
+                    <a href="{20}" target="_blank"><img src="{21}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{22}" target="_blank"><img src="{23}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{24}" target="_blank"><img src="{25}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>Stdev, MADFM (A/B)</p>
+                    <br><p>Stdev, MADFM (A/B/C)</p>
+                    </td>
+                    <td>
+                    <a href="{26}" target="_blank"><img src="{27}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{28}" target="_blank"><img src="{29}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{30}" target="_blank"><img src="{31}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM (A/B/C)</p>
+                    </td>
+                    <td>
+                    <a href="{32}" target="_blank"><img src="{33}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{34}" target="_blank"><img src="{35}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{36}" target="_blank"><img src="{37}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM (A/B/C)</p>
                     """.format(sizeX,
                                sizeY,
                                beamMinMax_plots[1],
                                fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[1],
                                beamMinMax_plots[3],
                                fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[3],
+                               beamMinMax_plots[5],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[5],
                                beamMinMax_plots[0],
                                fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[0],
                                beamMinMax_plots[2],
                                fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[2],
                                beamMinMax_plots[4],
                                fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[4],
-                               beamMinMax_plots[5],
-                               fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[5],
+                               beamMinMax_plots[6],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[6],
+                               beamMinMax_plots[7],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[7],
+                               beamMinMax_plots[8],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamMinMax[8],
                                beamNoise_plots[1],
                                fig_dir.split('/')[-1] + '/' + thumb_beamNoise[1],
                                beamNoise_plots[3],
                                fig_dir.split('/')[-1] + '/' + thumb_beamNoise[3],
+                               beamNoise_plots[5],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamNoise[5],
                                beamNoise_plots[0],
                                fig_dir.split('/')[-1] + '/' + thumb_beamNoise[0],
                                beamNoise_plots[2],
                                fig_dir.split('/')[-1] + '/' + thumb_beamNoise[2],
                                beamNoise_plots[4],
                                fig_dir.split('/')[-1] + '/' + thumb_beamNoise[4],
-                               beamNoise_plots[5],
-                               fig_dir.split('/')[-1] + '/' + thumb_beamNoise[5]))
+                               beamNoise_plots[6],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamNoise[6],
+                               beamNoise_plots[7],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamNoise[7],
+                               beamNoise_plots[8],
+                               fig_dir.split('/')[-1] + '/' + thumb_beamNoise[8]))
 
 # Continuum subtracted beam cubes
 html.write("""</td>
@@ -1873,37 +1933,50 @@ html.write("""</td>
                     <td>
                     <a href="{2}" target="_blank"><img src="{3}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{4}" target="_blank"><img src="{5}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>MAD Max Flux Density (A/B)</p>
-                    </td>
-                    <td>
                     <a href="{6}" target="_blank"><img src="{7}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>Median RMS Noise (A/B)</p>
+                    <br><p>MAD Max Flux Density (A/B/C)</p>
                     </td>
                     <td>
+                    <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{10}" target="_blank"><img src="{11}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{12}" target="_blank"><img src="{13}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <br><p>Median RMS Noise (A/B/C)</p>
+                    </td>
+                    <td>
                     <a href="{14}" target="_blank"><img src="{15}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{16}" target="_blank"><img src="{17}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <br><p>1-percentile Noise Rank (A/B)</p>
+                    <a href="{18}" target="_blank"><img src="{19}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{20}" target="_blank"><img src="{21}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{22}" target="_blank"><img src="{23}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{24}" target="_blank"><img src="{25}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <br><p>1-percentile Noise Rank (A/B/C)</p>
                     """.format(sizeX,
                                sizeY,
                                beam_MADMFD_fig_A,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + MADMFD_plot_A,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + MADMFD_plot_A,
                                beam_MADMFD_fig_B,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + MADMFD_plot_B,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + MADMFD_plot_B,
+                               beam_MADMFD_fig_C,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + MADMFD_plot_C,
                                beam_Med_RMS_fig_A,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + MedRMS_plot_A,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + MedRMS_plot_A,
                                beam_Med_RMS_fig_B,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + MedRMS_plot_B,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + MedRMS_plot_B,
+                               beam_Med_RMS_fig_C,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + MedRMS_plot_C,
                                beam_1pctile_histfig_A,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + onepctile_plot_A,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + onepctile_plot_A,
                                beam_1pctile_QCfig_A,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + onepctile_QCplot_A,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_A,
                                beam_1pctile_histfig_B,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + onepctile_plot_B,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + onepctile_plot_B,
                                beam_1pctile_QCfig_B,
-                               fig_dir.split('/')[-1] + '/thumb_' + str(sizeX) + '_' + onepctile_QCplot_B))
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_B,
+                               beam_1pctile_histfig_C,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + onepctile_plot_C,
+                               beam_1pctile_QCfig_C,
+                               fig_dir.split('/')[-1] + '/' + 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_C))
+
 
 # Mosaic statistics
 html.write("""</td>
@@ -1912,22 +1985,25 @@ html.write("""</td>
                     <h2 align="middle">Mosaic Statistics</h2>
                     <table width="100%" border="1">
                     <tr>
-                    <th>Image Cube (A/B)</th>
-                    <th>Continuum Subtracted Cube (A/B)</th>
-                    <th>Residual Cube (A/B)</th>
+                    <th>Image Cube (A/B/C)</th>
+                    <th>Continuum Subtracted Cube (A/B/C)</th>
+                    <th>Residual Cube (A/B/C)</th>
                     </tr>
                     <tr align="middle">
                     <td>
                     <a href="{2}" target="_blank"><img src="{3}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{4}" target="_blank"><img src="{5}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    </td>
-                    <td>
                     <a href="{6}" target="_blank"><img src="{7}" width="{0}" height="{1}" alt="thumbnail"></a>
-                    <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
                     </td>
                     <td>
+                    <a href="{8}" target="_blank"><img src="{9}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{10}" target="_blank"><img src="{11}" width="{0}" height="{1}" alt="thumbnail"></a>
                     <a href="{12}" target="_blank"><img src="{13}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="{14}" target="_blank"><img src="{15}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{16}" target="_blank"><img src="{17}" width="{0}" height="{1}" alt="thumbnail"></a>
+                    <a href="{18}" target="_blank"><img src="{19}" width="{0}" height="{1}" alt="thumbnail"></a>
 
                     """.format(sizeX,
                                sizeY,
@@ -1935,16 +2011,22 @@ html.write("""</td>
                                fig_dir.split('/')[-1] + '/' + thumb_cubeplots[1],
                                cube_plots[4],
                                fig_dir.split('/')[-1] + '/' + thumb_cubeplots[4],
+                               cube_plots[7],
+                               fig_dir.split('/')[-1] + '/' + thumb_cubeplots[7],
                                cube_plots[0],
                                fig_dir.split('/')[-1] + '/' + thumb_cubeplots[0],
                                cube_plots[3],
                                fig_dir.split('/')[-1] + '/' + thumb_cubeplots[3],
+                               cube_plots[6],
+                               fig_dir.split('/')[-1] + '/' + thumb_cubeplots[6],
                                cube_plots[2],
                                fig_dir.split('/')[-1] + '/' + thumb_cubeplots[2],
                                cube_plots[5],
-                               fig_dir.split('/')[-1] + '/' + thumb_cubeplots[5]))
+                               fig_dir.split('/')[-1] + '/' + thumb_cubeplots[5],
+                               cube_plots[8],
+                               fig_dir.split('/')[-1] + '/' + thumb_cubeplots[8]))
 
-# Mosaic statistics (A/B combined)
+# Mosaic statistics (A/B/C combined)
 html.write("""</td>
                     </tr>
                     </table>
@@ -1953,7 +2035,7 @@ html.write("""</td>
                     <th>Combined Image Cube</th>
                     <th>Combined Continuum Subtracted Cube</th>
                     <th>Combined Residual Cube</th>
-                    <th>Number of Bad Channels</th>
+                    <th>Number of Bad Channel</th>
                     </tr>
                     <tr align="middle">
                     <td>
@@ -1981,12 +2063,13 @@ html.write("""</td>
                                n_bad_chan,
                                fig_dir.split('/')[-1] + '/' + mosaic_bad_chan))
 
-# Continuum Residaul test for Mosaic cube
+
 if do_contsub_test:
+    # Continuum Residaul test for Mosaic cube (A/B/C combined)
     html.write("""</td>
                         </tr>
                         </table>
-                        <h2 align="middle">Continuum Residual Test***</h2>
+                        <h2 align="middle">Continuum Residual Test</h2>
                         <table width="100%" border="1">
                         <tr>
                         <th>Spectra from Brightest Sources and Field Centre</th>
@@ -2012,6 +2095,7 @@ if do_contsub_test:
                                    contsub_plots[2],
                                    fig_dir.split('/')[-1] + '/' + thumb_contsub_tests[2]))
 
+
 # HIPASS soruces within the field observed
 html.write("""</td>
               </tr>
@@ -2034,8 +2118,7 @@ html.write("""
 
               <p align=left>
               * If more than one version of ASKAPsoft is used for the whole reduction, the latest one is reported.<br>
-              ** Does not take into account field rotation.<br>
-              *** Using spectra extracted from brightest continuum sources and field center positions.<br>
+              ** Does not take into account field rotation. <br>
               Generated at {0} <br>
               <i> Report bugs to
               <a href="mailto:jonghwan.rhee@uwa.edu.au">Jonghwan Rhee</a></i>
