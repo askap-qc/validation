@@ -1339,7 +1339,7 @@ BEAM_EXP_RMS_B = cal_Beam_ExpRMS(FLAG_STAT_B, theoretical_rms[1])
 if do_contsub_test:
 
     # Input files
-    selavy_file = glob('./selavy-cont-image*restored/selavy-image*islands.xml')[0]
+    selavy_file = glob('./selavy-cont-image*restored*/selavy-image*islands.xml')[0]
     fitscube = glob('image.restored.' + imagebase + 'contsub.fits')[0]
 
     # Read selavy continuum catalogue
