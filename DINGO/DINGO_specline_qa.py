@@ -630,7 +630,7 @@ def qc_BeamLogs(field, band):
     file_dir = diagnostics_dir + '/cubestats-' + field
     basename = '/beamlog.image.restored.' + imagebase + field
     if band == 1:
-        tolerance = [20, 21]
+        tolerance = [19, 21]
     elif band == 2:
         tolerance = [30 - 30 * 0.006, 30 + 30 * 0.006]
     else:
