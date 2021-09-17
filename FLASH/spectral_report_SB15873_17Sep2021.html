@@ -1,0 +1,232 @@
+<!DOCTYPE HTML>
+              <html>
+                    <head>
+                    <style>
+                  body {
+                        background-color: white;
+                  }
+                  h1 {
+                      color: black;
+                  }
+                  h4 {
+                      color: black;
+                  }
+                  p {
+                     color: black;
+                  }
+                  th, td {
+                         padding: 5px;
+                  }
+                  table {
+                         width: "100%";
+                         border: "1";
+                         border-spacing: 2px;
+                  }
+                  img {
+                       border: 1px solid #ddd; /* Gray border */
+                       border-radius: 4px;
+                       padding: 5px;
+                  }
+                  #good {
+                         background-color:#00FF00;
+                  }
+                  #ok {
+                         background-color:#FFD700;
+                  }
+                  #bad {
+                         background-color:#CD5C5C;
+                  }
+                  </style>
+                    </head>
+                    <body>
+                    <center>
+                    <title>ASKAP FLASH Spectral Line Data Validation Report</title>
+                    <table width="100%" border="0">
+                    <tr>
+                        <th style="width:220"><img style="border:none;" src="" width="220" align="center"></th>
+                        <th><h1 align="center"><font color="red">FLASH</font> Spectral Line Data Validation Report</h1>
+			<th style="width:220"><img style="border:none;" src="" width="220" align="center"></th>
+		    </tr></table><h2 align="middle">Observation</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>SBID</th>
+                        <th>No. of Antennas</th>
+                        <th>Obs Start Date/Time<br>(UTC)</th> 
+                        <th>Obs End Date/Time<br>(UTC)</th>   
+                        <th>Duration<br>(hr)</th>
+                        <th>Field</th>
+                        <th>R.A.</th>
+                        <th>Decl.</th>
+                        <th>Total Bandwidth <br>(MHz)</th>
+                    </tr>
+		    <tr></tr>
+                    <tr align="middle">
+                        <td>15873</td>
+                        <td>36</td>
+                        <td>04-Sep-2020/13:45:40.5</td>
+                        <td>04-Sep-2020/15:45:36.7</td>
+                        <td>2.0</td>
+                        <td>FLASH_160P</td>
+                        <td>23:23:04.6</td>
+                        <td>-50.05.45.2</td>
+                        <td>288.0</td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Processed Image Cube</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>ASKAPsoft<br>version</th>
+                        <th>Cal SBID</th>
+                        <th>Frequency Range<br>(MHz)</th>
+                        <th>Central Frequency<br>(MHz)</th>
+                        <th>No. of Channels</th>
+                        <th>Channel Width<br>(kHz)</th>
+                        <th>Synthesised Beam<br>(arcsec &times; arcsec)</th>
+                        <th>Beam Logs</th>
+                        <th>Flagged Fractions</th>
+                        <th>Flagged Antennas</th>
+                        <th>Expected RMS</th>
+                    </tr>
+                    <tr align="middle">
+                        <td>1.0.16</td>
+                        <td>15873</td>
+                        <td>711.5--999.481</td>
+                        <td>855.4907</td>
+                        <td>15552</td>
+                        <td>18.519</td>
+                        <td>26.19 &times; 22.71</td>
+                        <td>
+                        <a href="Figures/beamlogs_qc_SB15873.png" target="_blank"><img src="Figures/thumb_70_beamlogs_qc_SB15873.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="Figures/FlagStat.png" target="_blank"><img src="Figures/thumb_70_FlagStat.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="Figures/FlagAnt.png" target="_blank"><img src="Figures/thumb_70_FlagAnt.png" width="70" height="70" alt="thumbnail"></a>
+                          <form action="Figures/flagged_antenna.txt" method="get" target="_blank">
+                          <button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button>
+                         </form>
+                        </td>
+                        <td>
+                        <a href="Figures/Exp_RMS.png" target="_blank"><img src="Figures/thumb_70_Exp_RMS.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Beams Statistics</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Beam Image Cube</th>          
+                    <th>Continuum Subtracted Beam Cube</th>
+                    <th>Residual Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/beamMinMax_image.restored.i.SB15873.cube.FLASH_160P.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_image.restored.i.SB15873.cube.FLASH_160P.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamMinMax_image.restored.i.SB15873.cube.FLASH_160P.contsub.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_image.restored.i.SB15873.cube.FLASH_160P.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamMinMax_residual.i.SB15873.cube.FLASH_160P.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_residual.i.SB15873.cube.FLASH_160P.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1 percentile</p>
+                    </td>
+                    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/beamNoise_image.restored.i.SB15873.cube.FLASH_160P.png" target="_blank"><img src="Figures/thumb_70_beamNoise_image.restored.i.SB15873.cube.FLASH_160P.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamNoise_image.restored.i.SB15873.cube.FLASH_160P.contsub.png" target="_blank"><img src="Figures/thumb_70_beamNoise_image.restored.i.SB15873.cube.FLASH_160P.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamNoise_residual.i.SB15873.cube.FLASH_160P.png" target="_blank"><img src="Figures/thumb_70_beamNoise_residual.i.SB15873.cube.FLASH_160P.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    </td>
+                    </tr>
+                    </table>
+                    <br><table width="100%" border="1">
+                    <tr>
+                    <th colspan="4">Continuum Subtracted Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="Figures/beamStat_MADMFD.png" target="_blank"><img src="Figures/thumb_70_beamStat_MADMFD.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>MAD of Max Flux Density</p>
+                    </td>
+                    <td>
+                    <a href="Figures/beamStat_MeanRMS.png" target="_blank"><img src="Figures/thumb_70_beamStat_MeanRMS.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Mean RMS</p>
+                    </td>
+                    <td>
+                    <a href="Figures/beamStat_MedianRMS.png" target="_blank"><img src="Figures/thumb_70_beamStat_MedianRMS.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Median RMS</p>
+                    </td>
+                    <td>
+                    <a href="Figures/beam_1pctile_hist_SB15873.png" target="_blank"><img src="Figures/thumb_70_beam_1pctile_hist_SB15873.png" width="70" height="70" alt="thumbnail"></a>
+                    <a href="Figures/beam_1pctile_qc_SB15873.png" target="_blank"><img src="Figures/thumb_70_beam_1pctile_qc_SB15873.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>1-percentile noise rank</p>
+                    </td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Mosaic Statistics</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                    <th>Image Cube</th>          
+                    <th>Continuum Subtracted Cube</th>
+                    <th>Residual Cube</th>
+                    </tr>
+		    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/cubestats-FLASH_160P/cubePlot-image.restored.i.SB15873.cube.FLASH_160P.linmos.png" target="_blank"><img src="Figures/thumb_70_cubePlot-image.restored.i.SB15873.cube.FLASH_160P.linmos.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="diagnostics/cubestats-FLASH_160P/cubePlot-image.restored.i.SB15873.cube.FLASH_160P.linmos.contsub.png" target="_blank"><img src="Figures/thumb_70_cubePlot-image.restored.i.SB15873.cube.FLASH_160P.linmos.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td>
+                    <a href="diagnostics/cubestats-FLASH_160P/cubePlot-residual.i.SB15873.cube.FLASH_160P.linmos.png" target="_blank"><img src="Figures/thumb_70_cubePlot-residual.i.SB15873.cube.FLASH_160P.linmos.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    </tr>
+                    <tr>
+                    <th>Number of Bad Quality Channel</th>
+                    <th>Number of Missing Data Channel</th>
+                    <th>Bandpass Smoothing Issue*</th>
+                    </tr>
+                    <tr align="middle">
+                    <td><br>n= 9                  
+                    <br><br><form action="Figures/mosaic_bad_chan.txt" method="get" target="_blank">
+			<button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button>
+                    </form>
+		    </td>
+                    <td><br>n= 3
+                    <br><br><form action="Figures/mosaic_missing_data.txt" method="get" target="_blank">
+			<button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button>
+                    </form>
+                    </td>
+                    <td>Yes
+                    </td>
+                    </td> 
+              </tr>
+              </table>
+              <p align=left>
+              * SBIDs processed prior to March 2021 were affected by issues with bandpass smoothing parameterisation, resulting in a higher incidence of glitches on 1 MHz intervals.</p>
+              <h2 align="middle">NVSS sources within 6 &times; 6 sq degree (Condon+ 1998)</h2>
+              <table>
+              <tr align="middle">
+              <td id="cell">
+              <form action="Figures/nvss.txt" method="get" target="_blank">
+                 <button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button>
+              </form>
+              
+              </td>
+              </tr>
+              </table>                                             
+              <p align=left>               
+              Generated at 2021-09-17 11:48:44.987676 <br>
+              <i> Report bugs to 
+              <a href="mailto:hyein.yoon@sydney.edu.au">Hyein Yoon</a></i>
+              </p>
+              </body>
+              </html>
