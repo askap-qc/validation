@@ -2,7 +2,7 @@
 
 17 Sep 2021 version, written by Hyein Yoon
 
-- The latest script has been tested with 36 SBIDs obtained from the Pilot Survey 1 observations (17 Sep 2021)
+- The latest script has been tested with 36 SBIDs from the Pilot Survey 1 observations (17 Sep 2021)
 
 
 # (Previous)
