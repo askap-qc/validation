@@ -1,6 +1,11 @@
 # FLASH data validation
 
-11 Nov 2020, written by Hyein Yoon
+17 Sep 2021 version, written by Hyein Yoon
+
+- The latest script has been tested with 36 SBIDs obtained from pilot survey 1 observations (17 Sep 2021)
+
+
+11 Nov 2020 version, written by Hyein Yoon
 
 - Please visit the link to see the validation output reports from individual SBIDs: https://github.com/hyeinyoon/askapflash-validation
 
