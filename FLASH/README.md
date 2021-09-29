@@ -5,7 +5,7 @@
 - The latest script has been tested with 36 SBIDs obtained from pilot survey 1 observations (17 Sep 2021)
 
 
-(Previous)
+# Previous
 
 11 Nov 2020 version, written by Hyein Yoon
 
