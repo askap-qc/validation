@@ -603,14 +603,6 @@ def cal_Theoretical_RMS(n_ant, tobs, chan_width, freq):
 
     """
 
-    if band == 1:
-        tsys = 52.6       # K
-    elif band == 2:
-        tsys = 48.3       # K
-    else:
-        print('Your band is not available')
-        sys.exit(1)
-
     antdiam = 12    # m
     aper_eff = 0.7  # aperture efficiency
     coreff = 0.8    # correlator efficiency
@@ -624,7 +616,7 @@ def cal_Theoretical_RMS(n_ant, tobs, chan_width, freq):
     return rms_jy
 
 
-def cal_Beam_ExpRMS(FLAGSTAT, t_rms, robust=True):
+def cal_Beam_ExpRMS(FLAGSTAT, t_rms, robust=False):
     """ Calculate the theoretical RMS of individual beam
         by considering the flagged percentage
         Simple scaling with non-flagged data fraction
