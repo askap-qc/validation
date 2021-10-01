@@ -21,7 +21,7 @@
 #
 # To run:
 #
-# python DINGO_SWAG-X_specline_qa.py -s 20506 -c 
+# python DINGO_SWAG-X_specline_qa.py -s 20506 -c
 #
 # Originally Written for ASKAP Wallaby data validation by Bi-Qing For
 # Version Modified on 24 March 2020
@@ -230,7 +230,10 @@ def get_HIPASS(pos_cen, dRA, dDec):
     hipass_cat = 'hipass.txt'
     #hipass_result['VIII/73/hicat'].write(fig_dir + '/' + hipass_cat, format='ascii.fixed_width', delimiter=' ')
     with open(fig_dir + '/' + hipass_cat, 'w') as f:
-        print(hipass_result[0], file=f)
+        if len(hipass_result) > 0:
+            print(hipass_result[0], file=f)
+        else:
+            print('No HIPASS sources in the field', file=f)
 
     return hipass_cat
 
@@ -247,7 +250,7 @@ def get_version(param):
     askapsoft: version of ASKAPsoft used
     """
 
-    line = subprocess.check_output(['tail', '-5', param])  # Grab the last 5 lines
+    line = subprocess.check_output(['tail', '-10', param])  # Grab the last 10 lines
     str_line = line.decode('utf-8')
     askapsoft = re.findall('ASKAPsoft\ version\ [0-9].+', str_line)[0].split()[-1]
 
@@ -617,7 +620,7 @@ def cal_Beam_ExpRMS(FLAGSTAT, t_rms):
     return BEAM_EXP_RMS
 
 
-def qc_BeamLogs(field, band):
+def qc_BeamLogs(imagebase, field, band):
     """ Evaluate if the synthesized beam deviate from the tolerance range
         (+/-0.05 % of the nominal 30 arcsec which is currently set up).
         Note that bmaj and bmin for the first few channels are always zero
@@ -628,7 +631,7 @@ def qc_BeamLogs(field, band):
     field: name of an interleaving field
     """
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/beamlog.image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/beamlog.image.restored.' + imagebase + field
     if band == 1:
         tolerance = [20, 21]
     elif band == 2:
@@ -671,7 +674,7 @@ def qc_BeamLogs(field, band):
     return QC_BEAMS_LABEL
 
 
-def FlagStat_plot(FLAGSTAT, field):
+def FlagStat_plot(FLAGSTAT, imagebase, field):
     """ Plotting and visualising flagging statistics of 36 beams.
 
     Parameters
@@ -686,7 +689,7 @@ def FlagStat_plot(FLAGSTAT, field):
     """
     # set inputs (path to inputs and output file names)
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     title = 'Flagged Data Fraction (' + field + ')'
     plot_name = 'FlagStat_' + field+ '.png'
@@ -843,7 +846,7 @@ def BeamLogs_QCplot(list_beams_id_label, field):
     return saved_fig, plot_name
 
 
-def BeamStat_plot(item, field):
+def BeamStat_plot(item, imagebase, field):
     """ Plotting and visualising statistics of 36 beams.
 
     Parameters
@@ -859,7 +862,7 @@ def BeamStat_plot(item, field):
     """
 
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 10,
               'axes.titlesize': 10,
@@ -946,7 +949,7 @@ def qc_NoiseRank(spread):
     return qc_label
 
 
-def NoiseRank_histplot(nchan, field):
+def NoiseRank_histplot(nchan, imagebase, field):
     """ Check distrubtion of 1 percentile noise
 
     Parameters
@@ -966,7 +969,7 @@ def NoiseRank_histplot(nchan, field):
     plot_name = 'beam_1pctile_hist_SB' + sbid + '_' + field + '.png'
     saved_fig = fig_dir + '/' + plot_name
     file_dir = diagnostics_dir + '/cubestats-' + field
-    basename = '/cubeStats-image.restored.i.SB' + sbid + '.cube.' + field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
     params = {'axes.labelsize': 12,
               'axes.titlesize': 10,
@@ -1227,7 +1230,7 @@ warnings.simplefilter('ignore', AstropyWarning)
 
 parser = ArgumentParser(description='Run DINGO SWAG-X validation and produce an HTML report')
 parser.add_argument('-s','--sbid', dest='sbid', required='true', help='Science SBID', type=str)
-parser.add_argument('-i','--imagebase', dest='imagebase', default='i.SB%s.cube', help='Base string for images [default=%default]', type=str)
+parser.add_argument('-i','--imagebase', dest='imagebase', default='i.%n.SB%s.cube', help='Base string for images [default=%default]', type=str)
 parser.add_argument('-c','--contsubTest', dest='contsubTest', action="store_true", help="Whether to run the contsub test as well [default=%default]")
 options = parser.parse_args()
 
@@ -1240,8 +1243,8 @@ fig_dir = 'Figures'
 sbid = options.sbid
 html_name = 'index.html'
 
-imagebase=options.imagebase + '.'
-imagebase=imagebase.replace('%s', sbid)
+imagebase = options.imagebase + '.'
+imagebase = imagebase.replace('%s', sbid)
 
 if not os.path.isdir(fig_dir):
     os.system('mkdir -p ' + fig_dir)
@@ -1250,7 +1253,7 @@ if not os.path.isdir(fig_dir):
 metafile = sorted(glob('metadata/mslist-*txt'))[0]
 metafile_science = sorted(glob('metadata/mslist-scienceData*txt'))[0]
 param_file = sorted(glob('slurmOutput/*.sh'))
-beamlogs_file = sorted(glob('./diagnostics/cubestats-*/beamlog.image.restored.i.SB' + sbid + '.cube.eFEDS*beam00.txt'))
+beamlogs_file = sorted(glob('./diagnostics/cubestats-*/beamlog*.cube.*beam00.txt'))
 
 # Check if there is more than one parameter input .sh file in the slurmOutput directory.
 # If it does, select the latest one.
@@ -1268,6 +1271,8 @@ nchan, chan_width, bw, cfreq, band = get_Metadata_processed(metafile_science)
 tobs_hr = info_metadata['tobs_hr']
 chan_width_kHz = chan_width
 field_names = [info_metadata['field_0'][1], info_metadata['field_1'][1], info_metadata['field_2'][1]]
+
+imagebase = imagebase.replace('%n', field_names[0])
 
 # Calculate on-source time for each interleaving field
 dat_count = []
@@ -1564,28 +1569,28 @@ if do_contsub_test:
 
 
 # Measured MAD of Maximum Flux Density of each beam for different interleaves
-beam_MADMFD_fig_A, MADMFD_plot_A = BeamStat_plot('MADMFD', field_names[0])
+beam_MADMFD_fig_A, MADMFD_plot_A = BeamStat_plot('MADMFD', imagebase, field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + MADMFD_plot_A
 make_Thumbnail(beam_MADMFD_fig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 
-beam_MADMFD_fig_B, MADMFD_plot_B = BeamStat_plot('MADMFD', field_names[1])
+beam_MADMFD_fig_B, MADMFD_plot_B = BeamStat_plot('MADMFD', imagebase, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + MADMFD_plot_B
 make_Thumbnail(beam_MADMFD_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
-beam_MADMFD_fig_C, MADMFD_plot_C = BeamStat_plot('MADMFD', field_names[2])
+beam_MADMFD_fig_C, MADMFD_plot_C = BeamStat_plot('MADMFD', imagebase, field_names[2])
 thumb_img_C = 'thumb_' + str(sizeX) + '_' + MADMFD_plot_C
 make_Thumbnail(beam_MADMFD_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
 # Measured median RMS of each beam for different interleaves
-beam_Med_RMS_fig_A, MedRMS_plot_A = BeamStat_plot('Med_RMS', field_names[0])
+beam_Med_RMS_fig_A, MedRMS_plot_A = BeamStat_plot('Med_RMS', imagebase, field_names[0])
 thumb_img_A = 'thumb_'+ str(sizeX) + '_'+ MedRMS_plot_A
 make_Thumbnail(beam_Med_RMS_fig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 
-beam_Med_RMS_fig_B, MedRMS_plot_B = BeamStat_plot('Med_RMS', field_names[1])
+beam_Med_RMS_fig_B, MedRMS_plot_B = BeamStat_plot('Med_RMS', imagebase, field_names[1])
 thumb_img_B = 'thumb_'+ str(sizeX) + '_'+ MedRMS_plot_B
 make_Thumbnail(beam_Med_RMS_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
-beam_Med_RMS_fig_C, MedRMS_plot_C = BeamStat_plot('Med_RMS', field_names[2])
+beam_Med_RMS_fig_C, MedRMS_plot_C = BeamStat_plot('Med_RMS', imagebase, field_names[2])
 thumb_img_C = 'thumb_'+ str(sizeX) + '_'+ MedRMS_plot_C
 make_Thumbnail(beam_Med_RMS_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
@@ -1603,15 +1608,15 @@ thumb_img_C = 'thumb_' + str(sizeX) + '_' + beamExpRMS_plot_C
 make_Thumbnail(beamExpRMS_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
 # Measured 1 percentile noise of each beam for different interleaves
-beam_1pctile_histfig_A, onepctile_plot_A, list_id_label_A = NoiseRank_histplot(float(nchan), field_names[0])
+beam_1pctile_histfig_A, onepctile_plot_A, list_id_label_A = NoiseRank_histplot(float(nchan), imagebase, field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + onepctile_plot_A
 make_Thumbnail(beam_1pctile_histfig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 
-beam_1pctile_histfig_B, onepctile_plot_B, list_id_label_B = NoiseRank_histplot(float(nchan), field_names[1])
+beam_1pctile_histfig_B, onepctile_plot_B, list_id_label_B = NoiseRank_histplot(float(nchan), imagebase, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + onepctile_plot_B
 make_Thumbnail(beam_1pctile_histfig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
-beam_1pctile_histfig_C, onepctile_plot_C, list_id_label_C = NoiseRank_histplot(float(nchan), field_names[2])
+beam_1pctile_histfig_C, onepctile_plot_C, list_id_label_C = NoiseRank_histplot(float(nchan), imagebase, field_names[2])
 thumb_img_C = 'thumb_' + str(sizeX) + '_' + onepctile_plot_C
 make_Thumbnail(beam_1pctile_histfig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
@@ -1628,31 +1633,31 @@ thumb_img_C = 'thumb_' + str(sizeX) + '_' + onepctile_QCplot_C
 make_Thumbnail(beam_1pctile_QCfig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
 # Check synthesized beam size of each beam for different interleaves
-list_beams_id_label_A = qc_BeamLogs(field_names[0], band)
+list_beams_id_label_A = qc_BeamLogs(imagebase, field_names[0], band)
 BeamLogs_QCfig_A, BeamLogs_QCplot_A = BeamLogs_QCplot(list_beams_id_label_A, field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_A
 make_Thumbnail(BeamLogs_QCfig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 
-list_beams_id_label_B = qc_BeamLogs(field_names[1], band)
+list_beams_id_label_B = qc_BeamLogs(imagebase, field_names[1], band)
 BeamLogs_QCfig_B, BeamLogs_QCplot_B = BeamLogs_QCplot(list_beams_id_label_B, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_B
 make_Thumbnail(BeamLogs_QCfig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
-list_beams_id_label_C = qc_BeamLogs(field_names[2], band)
+list_beams_id_label_C = qc_BeamLogs(imagebase, field_names[2], band)
 BeamLogs_QCfig_C, BeamLogs_QCplot_C = BeamLogs_QCplot(list_beams_id_label_C, field_names[2])
 thumb_img_C = 'thumb_' + str(sizeX) + '_' + BeamLogs_QCplot_C
 make_Thumbnail(BeamLogs_QCfig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 
 # Check flagged data fraction of each beam for different interleaves
-Flagged_fig_A, Flagged_plot_A = FlagStat_plot(FLAG_STAT_A, field_names[0])
+Flagged_fig_A, Flagged_plot_A = FlagStat_plot(FLAG_STAT_A, imagebase, field_names[0])
 thumb_img_A = 'thumb_' + str(sizeX) + '_' + Flagged_plot_A
 make_Thumbnail(Flagged_fig_A, thumb_img_A, sizeX, sizeY, fig_dir)
 
-Flagged_fig_B, Flagged_plot_B = FlagStat_plot(FLAG_STAT_B, field_names[1])
+Flagged_fig_B, Flagged_plot_B = FlagStat_plot(FLAG_STAT_B, imagebase, field_names[1])
 thumb_img_B = 'thumb_' + str(sizeX) + '_' + Flagged_plot_B
 make_Thumbnail(Flagged_fig_B, thumb_img_B, sizeX, sizeY, fig_dir)
 
-Flagged_fig_C, Flagged_plot_C = FlagStat_plot(FLAG_STAT_C, field_names[2])
+Flagged_fig_C, Flagged_plot_C = FlagStat_plot(FLAG_STAT_C, imagebase, field_names[2])
 thumb_img_C = 'thumb_' + str(sizeX) + '_' + Flagged_plot_C
 make_Thumbnail(Flagged_fig_C, thumb_img_C, sizeX, sizeY, fig_dir)
 plt.close('all')
