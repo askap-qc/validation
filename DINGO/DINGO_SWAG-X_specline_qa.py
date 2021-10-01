@@ -568,43 +568,68 @@ def qc_Bad_Chans(infile, med_madfm):
     return n_bad_chan, mosaic_bad_chan, QC_badchan_id
 
 
-def cal_Theoretical_RMS(n_ant, tobs, chan_width, band):
+def cal_tsys_eta(freq):
+    """ Calculate Tsys/eta using a polynomial fit to Tsys measurement data
+
+    Parameters
+    ----------
+    freq: frequency at which to calculate tsys/eta
+
+    Returns
+    -------
+    tsys_eta: calculated tsys/eta at freq
+    """
+    coeff = np.array([-4.28827276e-24,  4.82213268e-20, -2.42617347e-16,  7.19171958e-13,
+       -1.39075496e-09,  1.83325124e-06, -1.66809301e-03,  1.03451323e+00,
+       -4.18490535e+02,  9.97127701e+04, -1.06263209e+07])
+
+    tsys_eta = np.polyval(coeff, freq)
+
+    return tsys_eta
+
+
+def cal_Theoretical_RMS(n_ant, tobs, chan_width, freq):
     """
     Calculating the theoretical rms noise for ASKAP.
     Assuming natural weighting and not taking into account fraction of flagged data.
-    For band 1, Tsys/eta = 75 K @ 1018.5 MHz is assumed based on ASKAP tsys measurements
-    For band 2, Tsys/eta = 69 K @ 1367.5 MHz is assumed based on ASKAP tsys measurements
-    """
+    using a polynomial fit to Tsys measurements
 
-    if band == 1:
-        tsys = 52.6       # K
-    elif band == 2:
-        tsys = 48.3       # K
-    else:
-        print('Your band is not available')
-        sys.exit(1)
+    Parameters
+    ==========
+    n_ant: number of antennas
+    tobs: total integration time in hour
+    freq: frequency at which to calculate the therectical rms in MHz
+
+    Return
+    ======
+    rms_jy: rms Jy/beam/channel
+
+    """
 
     antdiam = 12    # m
     aper_eff = 0.7  # aperture efficiency
     coreff = 0.8    # correlator efficiency
     npol = 2.0      # Number of polarisation, npol = 2 for images in Stokes I, Q, U, or V
 
-    anteff = pi * (antdiam / 2)**2. * aper_eff
-    SEFD = 2. * k_B * 1e26 * tsys / anteff
+    tsys_eta = cal_tsys_eta(freq)
+    anteff = pi * (antdiam / 2)**2.
+    SEFD = 2. * k_B * 1e26 * tsys_eta / anteff
     rms_jy = SEFD / (coreff * sqrt(npol * n_ant * (n_ant - 1) * chan_width * tobs))
 
     return rms_jy
 
 
-def cal_Beam_ExpRMS(FLAGSTAT, t_rms):
+def cal_Beam_ExpRMS(FLAGSTAT, t_rms, robust=False):
     """ Calculate the theoretical RMS of individual beam
         by considering the flagged percentage
         Simple scaling with non-flagged data fraction
+        and by multiplying a factor of 1.2 for robust weights.
 
     Parameters
     ----------
     FLAGSTAT: file containing flagging data fraction for each beam
     t_rms: theoretical rms expected based on observation and ASKAP specs
+    robust: switch between robust (r~0.0) and natural weighting
 
     Returns
     -------
@@ -614,7 +639,10 @@ def cal_Beam_ExpRMS(FLAGSTAT, t_rms):
 
     for stat in FLAGSTAT:
         # 1/sqrt(non-flagged fraction) * theoretical rms in mJy
-        beam_Exp_RMS = 1 / sqrt(float(1 - stat / 100)) * t_rms
+        if robust:
+            beam_Exp_RMS = 1.2 * 1 / sqrt(float(1 - stat / 100)) * t_rms
+        else:
+            beam_Exp_RMS = 1 / sqrt(float(1 - stat / 100)) * t_rms
         BEAM_EXP_RMS.append(beam_Exp_RMS)
 
     return BEAM_EXP_RMS
@@ -1302,13 +1330,13 @@ for i in range(info_metadata['nfields']):
     if beams is None:
         bmaj, bmin = get_beaminfo(beamlogs_file[i])
         beams = [(bmaj, bmin)]
-        theoretical_rms = [(cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3, band)) * 1e3]
+        theoretical_rms = [(cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3, float(cfreq))) * 1e3]
         ra_cen = [info_metadata['field_'+str(i)][2]]
         dec_cen = [info_metadata['field_'+str(i)][3]]
 
     else:
         beams.append(get_beaminfo(beamlogs_file[i]))
-        theoretical_rms.append((cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3, band)) * 1e3)
+        theoretical_rms.append((cal_Theoretical_RMS(info_metadata['n_ant'], t_int[i]*3600, chan_width*1e3, float(cfreq))) * 1e3)
         ra_cen.append(info_metadata['field_'+str(i)][2])
         dec_cen.append(info_metadata['field_'+str(i)][3])
 
@@ -1429,6 +1457,8 @@ if do_contsub_test:
     for i, ax in enumerate(axs.flat):
         ax.plot(freq, spec[:,i], color=cmap[0])
         [i.set_linewidth(1.2) for i in ax.spines.values()]
+        ax.set_ylim(-15, 15)
+
         if (i % 2 == 0) and (i < 10):
             ax.set_ylabel('Flux (mJy/beam)')
             ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
@@ -1501,7 +1531,13 @@ if do_contsub_test:
         ax.plot(freq_rebin['bin_size:64'], spec_rebin['bin_size:64'][:,i]/np.sqrt(64), color=cmap[3],     label=r'N$_{\rm sum}$=64')
         ax.plot(freq_rebin['bin_size:256'], spec_rebin['bin_size:256'][:,i]/np.sqrt(256), color=cmap[4],     label=r'N$_{\rm sum}$=256')
         ax.plot(freq_rebin['bin_size:1024'], spec_rebin['bin_size:1024'][:,i]/np.sqrt(1024), color=cmap[5],     label=r'N$_{\rm sum}$=1024')
+
+        y_min = np.nanmin(spec_rebin['bin_size:1024'][:,i])/np.sqrt(1024)
+        y_max = np.nanmax(spec_rebin['bin_size:1024'][:,i])/np.sqrt(1024)
+        y_lim = max(abs(y_min), abs(y_max)) + 5.0
+        ax.set_ylim(-y_lim, y_lim)
         [i.set_linewidth(1.2) for i in ax.spines.values()]
+
         if (i % 2 == 0) and (i < 10):
             ax.set_ylabel('Flux (mJy/beam)')
             ax.set_title(f'{f_int[i]:.1f} mJy source, {dist[i]:.1f} from the center')
