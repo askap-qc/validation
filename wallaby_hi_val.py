@@ -797,7 +797,8 @@ def NoiseRank_histplot(nchan):
         onepctile = data[:,6]
         median_val = np.median(onepctile)
         # if statement is needed to rule out really bad data without having to do the Gaussian fitting
-        if (median_val > 1000.0) or (median_val < -1000.0):
+        #   add an IQR test to exclude the case of IQR=0 (ie all zeros)
+        if (median_val > 1000.0) or (median_val < -1000.0) or not iqr(onepctile)>0.:
             ID_LABEL.append('bad')
             axs[i].set_xlim(-1, 1)
             axs[i].set_ylim(0, 3)
