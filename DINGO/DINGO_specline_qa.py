@@ -1320,7 +1320,7 @@ else:
 
 # mosaic contsub statistic
 cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-*/cubeStats*linmos.contsub.txt'))
-cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*cube.contsub.txt'))
+cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*contsub.txt'))
 
 # get frequency information
 start_freq, end_freq = get_frequency_range(cubestat_linmos_contsub[0])
@@ -1564,7 +1564,7 @@ if do_contsub_test:
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob(diagnostics_dir + '/cubestats-G*/*linmos*.png'))  # Mosaic statistic
+cube_plots = sorted(glob(diagnostics_dir + '/cubestats-*/*linmos*.png'))  # Mosaic statistic
 cube_plots_final = sorted(glob(diagnostics_dir + '/cubePlot*.png'))  # Final Mosaic statistic
 beamNoise_plots = sorted(glob(diagnostics_dir + '/beamNoise*.png'))  # beam-by-beam statistic
 beamMinMax_plots = sorted(glob(diagnostics_dir + '/beamMinMax*.png'))  # beam-by-beam statistic
