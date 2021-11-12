@@ -1301,8 +1301,12 @@ askapsoft = get_version(param)
 nchan, chan_width, bw, cfreq, band = get_Metadata_processed(metafile_science)
 tobs_hr = info_metadata['tobs_hr']
 chan_width_kHz = chan_width
-field_names = [info_metadata['field_0'][1], info_metadata['field_1'][1]]
-
+field_names = [info_metadata['field_0'][1]]
+if info_metadata['nfields'] >1:
+    field_names.append(info_metadata['field_1'][1])
+if info_metadata['nfields'] > 2:
+    field_names.append(info_metadata['field_2'][1])
+ 
 # Calculate on-source time for each interleaving field
 dat_count = []
 if info_metadata['nfields'] > 1:
