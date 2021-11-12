@@ -247,7 +247,7 @@ def get_version(param):
     askapsoft: version of ASKAPsoft used
     """
 
-    line = subprocess.check_output(['tail', '-5', param])  # Grab the last 5 lines
+    line = subprocess.check_output(['tail', '-10', param])  # Grab the last 10 lines
     str_line = line.decode('utf-8')
     askapsoft = re.findall('ASKAPsoft\ version\ [0-9].+', str_line)[0].split()[-1]
 
