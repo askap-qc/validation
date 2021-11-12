@@ -199,7 +199,7 @@ def get_Flagging_KeyValues(flagging_file):
     """
 
     flag_infile = open(flagging_file, 'r')
-    LINES = flag_infile.readlines()[:6]
+    LINES = flag_infile.readlines()[:10]
     flag_infile.close()
     
     N_Rec = 'nRec'  # Total number of spectra feeds into the synthesis image. This is not always constant so grab the value beam-by-beam.
@@ -243,7 +243,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
         for line in f:
             if "#" not in line:  # grep -v "#"
                 if "Flagged" not in line:   # grep -v "Flagged"
-                    if len(line.split())>2:  # avoid new channel-wise summaries at end of flagSummary file
+                    if len(line.split())>=7:  # avoid new channel-wise summaries at end of flagSummary file
                         TOKS=line.split()
                         ant1 = int(TOKS[3])
                         ant2 = int(TOKS[4])
@@ -797,7 +797,8 @@ def NoiseRank_histplot(nchan):
         onepctile = data[:,6]
         median_val = np.median(onepctile)
         # if statement is needed to rule out really bad data without having to do the Gaussian fitting
-        if (median_val > 1000.0) or (median_val < -1000.0):
+        #   add an IQR test to exclude the case of IQR=0 (ie all zeros)
+        if (median_val > 1000.0) or (median_val < -1000.0) or not iqr(onepctile)>0.:
             ID_LABEL.append('bad')
             axs[i].set_xlim(-1, 1)
             axs[i].set_ylim(0, 3)
@@ -971,8 +972,8 @@ def BeamStat_plot(item, n):
             if item == 'Avg_RMS':
                 beamstat = cal_beam_AvgRMS(infile)
 
-        plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
-        plt.text(beamXPOS[i], beamYPOS[i], n[i], va='center', ha='center')
+            plt.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[beamstat], cmap='RdYlGn_r', edgecolors='black', vmin=vmin, vmax=vmax)
+            plt.text(beamXPOS[i], beamYPOS[i], n[i], va='center', ha='center')
 
     plt.xlim(0,0.7)
     plt.ylim(0,1.4)
@@ -1032,24 +1033,25 @@ def ResBeam_Stats_plot(n, header_bmaj, header_bmin):
     for i in range(0,36):
         bnum = n[i]
         infile = file_dir + basename +'.beam%02d.txt'%(bnum)
-        bmaj_stdev, bmin_stdev, beam_threshold, max_ratio_BA, min_ratio_BA = cal_ResBeam_Stats(infile, header_bmaj, header_bmin)
-        BEAM_THRESHOLD.append(beam_threshold)
+        if os.path.isfile(infile):
+            bmaj_stdev, bmin_stdev, beam_threshold, max_ratio_BA, min_ratio_BA = cal_ResBeam_Stats(infile, header_bmaj, header_bmin)
+            BEAM_THRESHOLD.append(beam_threshold)
 
-        ax1.scatter([beamXPOS[i]], [beamYPOS[i]], s=1400, edgecolors='black', facecolors='none')
-        ax1.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
-        ax1.text(beamXPOS[i], beamYPOS[i]-0.02, round(bmaj_stdev, 3), va='center', ha='center', fontsize=8, color='blue')
+            ax1.scatter([beamXPOS[i]], [beamYPOS[i]], s=1400, edgecolors='black', facecolors='none')
+            ax1.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+            ax1.text(beamXPOS[i], beamYPOS[i]-0.02, round(bmaj_stdev, 3), va='center', ha='center', fontsize=8, color='blue')
 
-        ax2.scatter([beamXPOS[i]], [beamYPOS[i]], s=1400, edgecolors='black', facecolors='none')
-        ax2.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
-        ax2.text(beamXPOS[i], beamYPOS[i]-0.02, round(bmin_stdev,3), va='center', ha='center', fontsize=8, color='blue')
+            ax2.scatter([beamXPOS[i]], [beamYPOS[i]], s=1400, edgecolors='black', facecolors='none')
+            ax2.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+            ax2.text(beamXPOS[i], beamYPOS[i]-0.02, round(bmin_stdev,3), va='center', ha='center', fontsize=8, color='blue')
 
-        maxplot = ax3.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[max_ratio_BA], cmap='summer', edgecolors='black', vmin=0, vmax=1.1)
-        ax3.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
-        ax3.text(beamXPOS[i], beamYPOS[i]-0.02, round(max_ratio_BA,3), va='center', ha='center', fontsize=8, color='blue')
+            maxplot = ax3.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[max_ratio_BA], cmap='summer', edgecolors='black', vmin=0, vmax=1.1)
+            ax3.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+            ax3.text(beamXPOS[i], beamYPOS[i]-0.02, round(max_ratio_BA,3), va='center', ha='center', fontsize=8, color='blue')
         
-        minplot = ax4.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[min_ratio_BA], cmap='summer', edgecolors='black', vmin=0, vmax=1.1)
-        ax4.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
-        ax4.text(beamXPOS[i], beamYPOS[i]-0.02, round(min_ratio_BA,3), va='center', ha='center', fontsize=8, color='blue')
+            minplot = ax4.scatter([beamXPOS[i]], [beamYPOS[i]], s=1300, c=[min_ratio_BA], cmap='summer', edgecolors='black', vmin=0, vmax=1.1)
+            ax4.text(beamXPOS[i], beamYPOS[i]+0.02, n[i], va='center', ha='center')
+            ax4.text(beamXPOS[i], beamYPOS[i]-0.02, round(min_ratio_BA,3), va='center', ha='center', fontsize=8, color='blue')
         
     ax1.set_xlim(0,0.7)
     ax1.set_ylim(0,1.4)
