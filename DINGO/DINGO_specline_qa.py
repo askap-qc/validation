@@ -275,7 +275,7 @@ def get_Flagging(flagging_file):
             total_uv = float(TOKS[7])
 
     with open(flagging_file, 'r') as flag_infile:
-        LINES = flag_infile.readlines()[:6]
+        LINES = flag_infile.readlines()[:10]
 
     N_Rec = 'nRec'
     N_Chan = 'nChan'
@@ -369,6 +369,11 @@ def get_Metadata_processed(metafile_science):
     cfreq: central frequency of processed data
     band: ASKAP band (1/2)
     """
+    # Define defaults - needed to overcome an occasional pathological case
+    cfreq=1376.5
+    nchan=2592
+    chan_width=18.519
+    bw=48
     with open(metafile_science, 'r') as f:
         for line in f.readlines():
             if re.search('Merged Window', line):
