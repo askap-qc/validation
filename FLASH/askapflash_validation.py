@@ -261,7 +261,7 @@ def get_Flagging_KeyValues(flagging_file):
     """
 
     flag_infile = open(flagging_file, 'r')
-    LINES = flag_infile.readlines()[:6]
+    LINES = flag_infile.readlines()[:10]
     flag_infile.close()
     
     N_Rec = 'nRec'  # Total number of spectra feeds into the synthesis image. This is not always constant so grab the value beam-by-beam.
@@ -304,7 +304,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
         for line in f:
             if "#" not in line:  # grep -v "#"
                 if "Flagged" not in line:   # grep -v "Flagged"
-                    if len(line.split())>2:  # avoid new channel-wise summaries at end of flagSummary file
+                    if len(line.split())>=7:  # avoid new channel-wise summaries at end of flagSummary file
                         TOKS=line.split()
                         ant1 = int(TOKS[3])
                         ant2 = int(TOKS[4])
