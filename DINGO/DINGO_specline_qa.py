@@ -247,7 +247,7 @@ def get_version(param):
     askapsoft: version of ASKAPsoft used
     """
 
-    line = subprocess.check_output(['tail', '-5', param])  # Grab the last 5 lines
+    line = subprocess.check_output(['tail', '-10', param])  # Grab the last 10 lines
     str_line = line.decode('utf-8')
     askapsoft = re.findall('ASKAPsoft\ version\ [0-9].+', str_line)[0].split()[-1]
 
@@ -275,7 +275,7 @@ def get_Flagging(flagging_file):
             total_uv = float(TOKS[7])
 
     with open(flagging_file, 'r') as flag_infile:
-        LINES = flag_infile.readlines()[:6]
+        LINES = flag_infile.readlines()[:10]
 
     N_Rec = 'nRec'
     N_Chan = 'nChan'
@@ -369,6 +369,11 @@ def get_Metadata_processed(metafile_science):
     cfreq: central frequency of processed data
     band: ASKAP band (1/2)
     """
+    # Define defaults - needed to overcome an occasional pathological case
+    cfreq=1376.5
+    nchan=2592
+    chan_width=18.519
+    bw=48
     with open(metafile_science, 'r') as f:
         for line in f.readlines():
             if re.search('Merged Window', line):
@@ -1019,7 +1024,8 @@ def NoiseRank_histplot(nchan, field):
         onepctile = data[:, 6]
         median_val = np.median(onepctile)
         # if statement is needed to rule out really bad data without having to do the Gaussian fitting
-        if (median_val > 1000.0) or (median_val < -1000.0):
+        #   add an IQR test to exclude the case of IQR=0 (ie all zeros)
+        if (median_val > 1000.0) or (median_val < -1000.0) or not iqr(onepctile)>0.:
             ID_LABEL.append('bad')
             axs[i].set_xlim(-1, 1)
             axs[i].set_ylim(0, 3)
@@ -1295,8 +1301,12 @@ askapsoft = get_version(param)
 nchan, chan_width, bw, cfreq, band = get_Metadata_processed(metafile_science)
 tobs_hr = info_metadata['tobs_hr']
 chan_width_kHz = chan_width
-field_names = [info_metadata['field_0'][1], info_metadata['field_1'][1]]
-
+field_names = [info_metadata['field_0'][1]]
+if info_metadata['nfields'] >1:
+    field_names.append(info_metadata['field_1'][1])
+if info_metadata['nfields'] > 2:
+    field_names.append(info_metadata['field_2'][1])
+ 
 # Calculate on-source time for each interleaving field
 dat_count = []
 if info_metadata['nfields'] > 1:
@@ -1310,7 +1320,7 @@ else:
 
 # mosaic contsub statistic
 cubestat_linmos_contsub = sorted(glob(diagnostics_dir + '/cubestats-*/cubeStats*linmos.contsub.txt'))
-cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*cube.contsub.txt'))
+cubestat_linmos_contsub_final = sorted(glob(diagnostics_dir + '/cubeStats*contsub.txt'))
 
 # get frequency information
 start_freq, end_freq = get_frequency_range(cubestat_linmos_contsub[0])
@@ -1554,7 +1564,7 @@ if do_contsub_test:
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob(diagnostics_dir + '/cubestats-G*/*linmos*.png'))  # Mosaic statistic
+cube_plots = sorted(glob(diagnostics_dir + '/cubestats-*/*linmos*.png'))  # Mosaic statistic
 cube_plots_final = sorted(glob(diagnostics_dir + '/cubePlot*.png'))  # Final Mosaic statistic
 beamNoise_plots = sorted(glob(diagnostics_dir + '/beamNoise*.png'))  # beam-by-beam statistic
 beamMinMax_plots = sorted(glob(diagnostics_dir + '/beamMinMax*.png'))  # beam-by-beam statistic
