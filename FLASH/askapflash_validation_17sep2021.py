@@ -183,7 +183,7 @@ def get_Flagging_KeyValues(flagging_file):
     """
 
     flag_infile = open(flagging_file, 'r')
-    LINES = flag_infile.readlines()[:6]
+    LINES = flag_infile.readlines()[:10]
     flag_infile.close()
     
     N_Rec = 'nRec'  # Total number of spectra feeds into the synthesis image. This is not always constant so grab the value beam-by-beam.
@@ -225,7 +225,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
         for line in f:
             if "#" not in line:  # grep -v "#"
                 if "Flagged" not in line:   # grep -v "Flagged"
-                    if len(line.split())>2:  # avoid new channel-wise summaries at end of flagSummary file
+                    if len(line.split())>=7:  # avoid new channel-wise summaries at end of flagSummary file
                         TOKS=line.split()
                         ant1 = int(TOKS[3])
                         ant2 = int(TOKS[4])
@@ -867,47 +867,52 @@ def NoiseRank_histplot(nchan):
 
     for i in range(0,36):
         infile = file_dir + basename +'.beam%02d.contsub.txt'%(i)
-        data = np.loadtxt(infile)
-        onepctile = data[:,6]
-        median_val = np.median(onepctile)
-        # if statement is needed to rule out really bad data without having to do the Gaussian fitting
-        if (median_val > 1000.0) or (median_val < -1000.0):
-            ID_LABEL.append('bad')
-            axs[i].set_xlim(-1, 1)
-            axs[i].set_ylim(0, 3)
-            axs[i].title.set_text('Beam%02d' %(i))
-        else:
-            upper_range = median_val + 3
-            lower_range = median_val - 3
-            x = onepctile[(onepctile < upper_range) & (onepctile > lower_range)]  # exclude outliers
-            xmax_val = np.max(x) 
-            xmin_val = np.min(x)
+        if os.path.isfile(infile):
+            data = np.loadtxt(infile)
+            onepctile = data[:,6]
+            median_val = np.median(onepctile)
+            # if statement is needed to rule out really bad data without having to do the Gaussian fitting
+            #   add an IQR test to exclude the case of IQR=0 (ie all zeros)
+            if (median_val > 1000.0) or (median_val < -1000.0) or not iqr(onepctile)>0.:
+                ID_LABEL.append('bad')
+                axs[i].set_xlim(-1, 1)
+                axs[i].set_ylim(0, 3)
+                axs[i].title.set_text('Beam%02d' %(i))
+            else:
+                upper_range = median_val + 3
+                lower_range = median_val - 3
+                x = onepctile[(onepctile < upper_range) & (onepctile > lower_range)]  # exclude outliers
+                xmax_val = np.max(x) 
+                xmin_val = np.min(x)
 
-            # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
-            bin_width = 2*iqr(x)*nchan**(-1/3) 
-            n_bins = int((xmax_val - xmin_val)/bin_width)
+                # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
+                bin_width = 2*iqr(x)*nchan**(-1/3) 
+                n_bins = int((xmax_val - xmin_val)/bin_width)
     
-            hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
-            with np.errstate(divide='ignore'):  # ignore division of zero 
-                N = np.log10(hist)   # get log N for y-axis
-                N[N == -inf] = 0
+                hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
+                with np.errstate(divide='ignore'):  # ignore division of zero 
+                    N = np.log10(hist)   # get log N for y-axis
+                    N[N == -inf] = 0
 
-            xcenter = (bins[:-1] + bins[1:]) / 2
-            ymax_val = np.max(N)
-            median_val_x = np.median(x)
+                xcenter = (bins[:-1] + bins[1:]) / 2
+                ymax_val = np.max(N)
+                median_val_x = np.median(x)
             
-            # Fitting a Gaussian and use spread (sigma) as a metric
-            guess=[ymax_val, median_val_x, 5.0]
-            coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
-            spread = round(np.abs(coeff[2]), 3)
-            ID_LABEL.append(qc_NoiseRank(spread))
+                # Fitting a Gaussian and use spread (sigma) as a metric
+                guess=[ymax_val, median_val_x, 5.0]
+                coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
+                spread = round(np.abs(coeff[2]), 3)
+                ID_LABEL.append(qc_NoiseRank(spread))
 
-            axs[i].bar(xcenter, N)
-            axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
-            axs[i].set_xlim(xmin_val-3, xmax_val+3)
-            axs[i].set_ylim(0, ymax_val+3)
-            axs[i].title.set_text('Beam%02d' %(i))
+                axs[i].bar(xcenter, N)
+                axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
+                axs[i].set_xlim(xmin_val-3, xmax_val+3)
+                axs[i].set_ylim(0, ymax_val+3)
+                axs[i].title.set_text('Beam%02d' %(i))
 
+        else:
+            ID_LABEL.append('bad')
+            
     plt.tight_layout()
     plt.savefig(saved_fig, bbox_inches='tight')
     plt.close()
@@ -1409,28 +1414,28 @@ html.write("""</td>
                     <td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                     <br><p>Stdev, MADFM</p>
-                    """.format(beamMinMax_plots[1],
+                    """.format(beamMinMax_plots[2],
+                               fig_dir+'/'+ thumb_beamMinMax[2],
+                               sizeX,
+                               sizeY,
+                               beamMinMax_plots[1],
                                fig_dir+'/'+ thumb_beamMinMax[1],
                                sizeX,
                                sizeY,
-                               beamMinMax_plots[0],
-                               fig_dir+'/'+ thumb_beamMinMax[0],
+                               beamMinMax_plots[4],
+                               fig_dir+'/'+ thumb_beamMinMax[4],
                                sizeX,
                                sizeY,
-                               beamMinMax_plots[2],
-                               fig_dir+'/'+ thumb_beamMinMax[2],
+                               beamNoise_plots[2],
+                               fig_dir+'/'+ thumb_beamNoise[2],
                                sizeX,
                                sizeY,
                                beamNoise_plots[1],
                                fig_dir+'/'+ thumb_beamNoise[1],
                                sizeX,
                                sizeY,
-                               beamNoise_plots[0],
-                               fig_dir+'/'+ thumb_beamNoise[0],
-                               sizeX,
-                               sizeY,
-                               beamNoise_plots[2],
-                               fig_dir+'/'+ thumb_beamNoise[2],
+                               beamNoise_plots[4],
+                               fig_dir+'/'+ thumb_beamNoise[4],
                                sizeX,
                                sizeY))
 
@@ -1518,16 +1523,16 @@ html.write("""</td>
                     </td>
                     <td>{16}
                     </td>
-                    """.format(cube_plots[1],
-                               fig_dir+'/' + thumb_cubeplots[1],
-                               sizeX,
-                               sizeY,
-                               cube_plots[0],
-                               fig_dir+'/'+ thumb_cubeplots[0],
+                    """.format(cube_plots[3],
+                               fig_dir+'/' + thumb_cubeplots[3],
                                sizeX,
                                sizeY,
                                cube_plots[2],
                                fig_dir+'/'+ thumb_cubeplots[2],
+                               sizeX,
+                               sizeY,
+                               cube_plots[5],
+                               fig_dir+'/'+ thumb_cubeplots[5],
                                sizeX,
                                sizeY,                               
                                QC_badchan_keyword,
