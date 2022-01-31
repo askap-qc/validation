@@ -288,7 +288,7 @@ def get_Flagging(flagging_file):
             total_uv = float(TOKS[7])
 
     with open(flagging_file, 'r') as flag_infile:
-        LINES = flag_infile.readlines()[:6]
+        LINES = flag_infile.readlines()[:12]
 
     N_Rec = 'nRec'
     N_Chan = 'nChan'
