@@ -27,7 +27,7 @@
 # Author: Bi-Qing For
 # Email: biqing.for [at] icrar.org
 # 
-# Modified Date: 1 Sept 2022 (BQF)
+# Modified Date: 2 November 2022 (BQF)
 ################################################################################
 
 import os
@@ -1241,6 +1241,12 @@ make_Thumbnail(max_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ min_ratioBA_plot
 make_Thumbnail(min_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
 
+SEFD_fig = glob(diagnostics_dir +'/SEFD_' + sbid + '_summary.png')
+SEFD_plot = 'SEFD_' + sbid + '_summary.png'
+thumb_img = 'thumb_' + str(sizeX) + '_' + SEFD_plot
+make_Thumbnail(SEFD_fig, thumb_img, sizeX, sizeY, fig_dir)
+
+
 # mean RMS of each beam and compares it to theoretical RMS (not taking into account flagging)
 #beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
 #thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
@@ -1376,6 +1382,7 @@ html.write("""</td>
                         <th>Flagged Antennas</th>
                         <th>Expected RMS</th>
                         <th>Ratio RMS</th>
+                        <th>SEFD</th>
                     </tr>
                     <tr align="middle">
                         <td>{0}</td>
@@ -1400,6 +1407,8 @@ html.write("""</td>
                         <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                         </td>
                         <a href="{24}" target="_blank"><img src="{25}" width="{26}" height="{27}" alt="thumbnail"></a>
+                        </td>
+                        <a href="{28}" target="_blank"><img src="{29}" width="{30}" height="{31}" alt="thumbnail"></a>
                         """.format(askapsoft,
                                    cal_sbid,
                                    freq_range,
@@ -1423,9 +1432,13 @@ html.write("""</td>
                                    beamExpRMS_fig, 
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + beamExpRMS_plot,
                                    sizeX,
-                                   sizeY)
+                                   sizeY,
                                    beam_RatioRMS_fig,
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + beam_RatioRMS_plot,
+                                   sizeX,
+                                   sizeY,
+                                   SEFD_fig,
+                                   fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + SEFD_plot,
                                    sizeX,
                                    sizeY))
 
