@@ -869,7 +869,7 @@ def NoiseRank_histplot(nchan):
         infile = file_dir + basename +'.beam%02d.contsub.txt'%(i)
         if os.path.isfile(infile):
             data = np.loadtxt(infile)
-            onepctile = data[:,6]
+            onepctile = data[:,6][data[:,3]>0]
             median_val = np.median(onepctile)
             # if statement is needed to rule out really bad data without having to do the Gaussian fitting
             #   add an IQR test to exclude the case of IQR=0 (ie all zeros)
@@ -1414,28 +1414,28 @@ html.write("""</td>
                     <td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                     <br><p>Stdev, MADFM</p>
-                    """.format(beamMinMax_plots[2],
-                               fig_dir+'/'+ thumb_beamMinMax[2],
-                               sizeX,
-                               sizeY,
-                               beamMinMax_plots[1],
+                    """.format(beamMinMax_plots[1],
                                fig_dir+'/'+ thumb_beamMinMax[1],
                                sizeX,
                                sizeY,
-                               beamMinMax_plots[4],
-                               fig_dir+'/'+ thumb_beamMinMax[4],
+                               beamMinMax_plots[0],
+                               fig_dir+'/'+ thumb_beamMinMax[0],
                                sizeX,
                                sizeY,
-                               beamNoise_plots[2],
-                               fig_dir+'/'+ thumb_beamNoise[2],
+                               beamMinMax_plots[2],
+                               fig_dir+'/'+ thumb_beamMinMax[2],
                                sizeX,
                                sizeY,
                                beamNoise_plots[1],
                                fig_dir+'/'+ thumb_beamNoise[1],
                                sizeX,
                                sizeY,
-                               beamNoise_plots[4],
-                               fig_dir+'/'+ thumb_beamNoise[4],
+                               beamNoise_plots[0],
+                               fig_dir+'/'+ thumb_beamNoise[0],
+                               sizeX,
+                               sizeY,
+                               beamNoise_plots[2],
+                               fig_dir+'/'+ thumb_beamNoise[2],
                                sizeX,
                                sizeY))
 
@@ -1523,16 +1523,16 @@ html.write("""</td>
                     </td>
                     <td>{16}
                     </td>
-                    """.format(cube_plots[3],
-                               fig_dir+'/' + thumb_cubeplots[3],
+                    """.format(cube_plots[1],
+                               fig_dir+'/' + thumb_cubeplots[1],
+                               sizeX,
+                               sizeY,
+                               cube_plots[0],
+                               fig_dir+'/'+ thumb_cubeplots[0],
                                sizeX,
                                sizeY,
                                cube_plots[2],
                                fig_dir+'/'+ thumb_cubeplots[2],
-                               sizeX,
-                               sizeY,
-                               cube_plots[5],
-                               fig_dir+'/'+ thumb_cubeplots[5],
                                sizeX,
                                sizeY,                               
                                QC_badchan_keyword,
