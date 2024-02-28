@@ -156,7 +156,7 @@ def get_NVSS(ra, dec):
     nvss_cat = 'nvss.txt'
     if nvss_result.keys()==[catalogue]:
 #      print (nvss_result[catalogue], file=open(fig_dir + '/' + nvss_cat,'w'))
-       nvss_result['VIII/65/nvss'].write(fig_dir + '/' + nvss_cat, format='ascii.fixed_width', delimiter=' ')
+       nvss_result['VIII/65/nvss'].write(fig_dir + '/' + nvss_cat, format='ascii.fixed_width', delimiter=' ', overwrite=True)
     else:
         print ("No sources found", file=open(fig_dir + '/' + nvss_cat,'w'))
 
@@ -888,6 +888,7 @@ def NoiseRank_histplot(nchan):
                 # Freedman-Diaconis rule. Nchan includes all processed channels, not excluding outliers. 
                 bin_width = 2*iqr(x)*nchan**(-1/3) 
                 n_bins = int((xmax_val - xmin_val)/bin_width)
+                print(f'binning with width={bin_width}, giving {n_bins} bins')
     
                 hist, bins = np.histogram(onepctile, bins=n_bins, range=(xmin_val-3, xmax_val+3))
                 with np.errstate(divide='ignore'):  # ignore division of zero 
@@ -900,15 +901,23 @@ def NoiseRank_histplot(nchan):
             
                 # Fitting a Gaussian and use spread (sigma) as a metric
                 guess=[ymax_val, median_val_x, 5.0]
-                coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
-                spread = round(np.abs(coeff[2]), 3)
-                ID_LABEL.append(qc_NoiseRank(spread))
+                print(f'Fitting Gaussian to {guess} with N={N} and xcenter={xcenter}')
+                try:
+                    coeff, var_matrix = curve_fit(gauss, xcenter, N, guess)
+                    spread = round(np.abs(coeff[2]), 3)
+                    ID_LABEL.append(qc_NoiseRank(spread))
 
-                axs[i].bar(xcenter, N)
-                axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
-                axs[i].set_xlim(xmin_val-3, xmax_val+3)
-                axs[i].set_ylim(0, ymax_val+3)
-                axs[i].title.set_text('Beam%02d' %(i))
+                    axs[i].bar(xcenter, N)
+                    axs[i].plot(xcenter,gauss(xcenter,*coeff),'r-',lw=1)    
+                    axs[i].set_xlim(xmin_val-3, xmax_val+3)
+                    axs[i].set_ylim(0, ymax_val+3)
+                    axs[i].title.set_text('Beam%02d' %(i))
+                except:
+                    print(f'Could not fit Gaussian for beam {i:02d}')
+                    ID_LABEL.append('bad')
+                    axs[i].set_xlim(-1, 1)
+                    axs[i].set_ylim(0, 3)
+                    axs[i].title.set_text('Beam%02d' %(i))
 
         else:
             ID_LABEL.append('bad')
@@ -1118,7 +1127,8 @@ n_bad_chan, mosaic_bad_chan, QC_badchan_id, QC_badchan_keyword = qc_Bad_Chans(cu
 n_mdata_chan, mosaic_mdata_chan, QC_mdata_chan_id, QC_mdata_chan_keyword = qc_Missing_Data(cubestat_linmos_contsub)
 
 # first_cat = get_FIRST(ra, dec)
-nvss_cat = get_NVSS(ra, dec)
+#nvss_cat = get_NVSS(ra, dec)
+nvss_cat = 'nvss.txt'
 
 #Flagging statistic for spectral line
 flagging_file = sorted(glob.glob(diagnostics_dir+'/Flagging_Summaries/*averaged.ms.flagSummary')) 
