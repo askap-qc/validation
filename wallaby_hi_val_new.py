@@ -145,10 +145,13 @@ def get_HIPASS(ra, dec):
     dec_tdeg = round(dec_deg + dec_arcmin/60. + dec_arcsec/3600., 7) #Converting it to decimal degree ignoring the sign here
     if TOKS_DEC_SIGN == '-': # taking into account the negative sign
         dec_tdeg = dec_tdeg * -1.0
+
+    print(f'ra={ra_deg}, dec={dec_tdeg}')
         
     hicat_result = hicat.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
-    nhicat_result = nhicat.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_deg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
-    BGC_result = BGC.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
+    if dec_tdeg >= -4.:
+        nhicat_result = nhicat.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_deg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
+    #BGC_result = BGC.query_region(coord.SkyCoord(ra=ra_deg, dec=dec_tdeg, unit=(u.deg, u.deg), frame='icrs'), width=[6*u.deg])
                         
     hipass_cat = fig_dir+'/'+'hipass.txt'
 
@@ -164,18 +167,19 @@ def get_HIPASS(ra, dec):
         hicat_result[catalogue_hicat].write(f, format='ascii.fixed_width', delimiter=' ')
     else:
         f.write('No HICAT sources (Meyer et al. 2004) within 6x6 degrees\n')
+
+    if dec_tdeg >= -4.:
+        if nhicat_result.keys()==[catalogue_nhicat]:
+            f.write('# NHICAT; Wong et al. 2006\n')
+            nhicat_result[catalogue_nhicat].write(f, format='ascii.fixed_width', delimiter=' ')
+        else:
+            f.write('No Northern HICAT sources (Wong et al. 2006) within 6x6 degrees\n')
     
-    if nhicat_result.keys()==[catalogue_nhicat]:
-        f.write('# NHICAT; Wong et al. 2006\n')
-        nhicat_result[catalogue_nhicat].write(f, format='ascii.fixed_width', delimiter=' ')
-    else:
-        f.write('No Northern HICAT sources (Wong et al. 2006) within 6x6 degrees\n')
-    
-    if BGC_result.keys()==[catalogue_BGC]:
-        f.write('# HIPASS Bright Galaxies Catalogue; Koribalski et al. 2004\n')
-        BGC_result[catalogue_BGC].write(f, format='ascii.fixed_width', delimiter=' ')
-    else:
-        f.write('No HIPASS Bright Galaxies Catalogue sources (Koribalski et al. 2004) within 6x6 degrees')
+#    if BGC_result.keys()==[catalogue_BGC]:
+#        f.write('# HIPASS Bright Galaxies Catalogue; Koribalski et al. 2004\n')
+#        BGC_result[catalogue_BGC].write(f, format='ascii.fixed_width', delimiter=' ')
+#    else:
+#        f.write('No HIPASS Bright Galaxies Catalogue sources (Koribalski et al. 2004) within 6x6 degrees')
 
     f.close()
         
@@ -200,7 +204,7 @@ def get_Flagging_KeyValues(flagging_file):
     """
 
     flag_infile = open(flagging_file, 'r')
-    LINES = flag_infile.readlines()[:6]
+    LINES = flag_infile.readlines()[:10]
     flag_infile.close()
     
     N_Rec = 'nRec'  # Total number of spectra feeds into the synthesis image. This is not always constant so grab the value beam-by-beam.
@@ -244,7 +248,7 @@ def get_Flagging(flagging_file, n_Rec, nChan, exp_count):
         for line in f:
             if "#" not in line:  # grep -v "#"
                 if "Flagged" not in line:   # grep -v "Flagged"
-                    if len(line.split())>2:  # avoid new channel-wise summaries at end of flagSummary file
+                    if len(line.split())>=7:  # avoid new channel-wise summaries at end of flagSummary file
                         TOKS=line.split()
                         ant1 = int(TOKS[3])
                         ant2 = int(TOKS[4])
@@ -561,7 +565,13 @@ def cal_Beam_RatioRMS(BEAM_EXP_RMS):
 
     BEAM_RATIO_RMS =[]
     exp_rms = np.array(BEAM_EXP_RMS)
+    file_dir = diagnostics_dir +'/cubestats-'+ field
+    basename = '/cubeStats-image.restored.' + imagebase + field
 
+    # use different basename for the Milky Way range
+    if not glob.glob(file_dir + basename +'*.txt'):
+        basename = '/cubeStats-image.restored.' + imagebase + 'MilkyWay.' + field
+    
     for i in range(36):
         
         infile = file_dir + basename +'.beam%02d.contsub.txt'%(i)
@@ -1190,9 +1200,11 @@ for ffile in flagging_file:
 max_n_flag_ant = np.max(N_FLAG_ANT)
 actual_n_ant = int(n_ant) - max_n_flag_ant
 
-BEAM_T_RMS = cal_Beam_TheoRMS(float(actual_n_ant), tobs, chan_width, sbid) #theoretical RMS beam-by-beam in mJy
-BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, BEAM_T_RMS)
-BEAM_RATIO_RMS = cal_Beam_RatioRMS(BEAM_EXP_RMS) 
+sefdHDF5='SEFD_{}.hdf5'.format(cal_sbid)
+if os.path.isfile(sefdHDF5):
+    BEAM_T_RMS = cal_Beam_TheoRMS(float(actual_n_ant), tobs, chan_width, cal_sbid) #theoretical RMS beam-by-beam in mJy
+    BEAM_EXP_RMS = cal_Beam_ExpRMS(FLAG_STAT, BEAM_T_RMS)
+    BEAM_RATIO_RMS = cal_Beam_RatioRMS(BEAM_EXP_RMS) 
     
 #############################    
 # HTML related tasks
@@ -1241,24 +1253,29 @@ make_Thumbnail(max_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
 thumb_img = 'thumb_'+ str(sizeX) + '_'+ min_ratioBA_plot
 make_Thumbnail(min_ratioBA_fig, thumb_img, sizeX, sizeY, fig_dir)
 
-SEFD_fig = glob(diagnostics_dir +'/SEFD_' + sbid + '_summary.png')
-SEFD_plot = 'SEFD_' + sbid + '_summary.png'
-thumb_img = 'thumb_' + str(sizeX) + '_' + SEFD_plot
-make_Thumbnail(SEFD_fig, thumb_img, sizeX, sizeY, fig_dir)
-
+SEFD_plot = 'SEFD_' + cal_sbid + '_summary.png'
+if os.path.isfile(SEFD_plot):
+    thumb_img = 'thumb_' + str(sizeX) + '_' + SEFD_plot
+    make_Thumbnail(SEFD_plot, thumb_img, sizeX, sizeY, fig_dir)
 
 # mean RMS of each beam and compares it to theoretical RMS (not taking into account flagging)
 #beam_Avg_RMS_fig, AvgRMS_plot = BeamStat_plot('Avg_RMS', n)
 #thumb_img = 'thumb_'+ str(sizeX) + '_'+ AvgRMS_plot
 #make_Thumbnail(beam_Avg_RMS_fig, thumb_img, sizeX, sizeY, fig_dir)
 
-beamExpRMS_fig, beamExpRMS_plot = Beam_ExpRMSplot(BEAM_EXP_RMS, n)
-thumb_img = 'thumb_'+ str(sizeX) + '_'+ beamExpRMS_plot
-make_Thumbnail(beamExpRMS_fig, thumb_img, sizeX, sizeY, fig_dir)
-
-beam_RatioRMS_fig, beam_RatioRMS_plot = Beam_RatioRMSplot(BEAM_RATIO_RMS, n)
-thumb_img = 'thumb_'+ str(sizeX) + '_'+ beam_RatioRMS_plot
-make_Thumbnail(beam_RatioRMS_fig, thumb_img, sizeX, sizeY, fig_dir)
+beamExpRMS_fig=''
+beam_RatioRMS_fig=''
+beamExpRMS_plot=''
+beam_RatioRMS_plot=''
+if os.path.isfile(sefdHDF5):
+    
+    beamExpRMS_fig, beamExpRMS_plot = Beam_ExpRMSplot(BEAM_EXP_RMS, n)
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ beamExpRMS_plot
+    make_Thumbnail(beamExpRMS_fig, thumb_img, sizeX, sizeY, fig_dir)
+    
+    beam_RatioRMS_fig, beam_RatioRMS_plot = Beam_RatioRMSplot(BEAM_RATIO_RMS, n)
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ beam_RatioRMS_plot
+    make_Thumbnail(beam_RatioRMS_fig, thumb_img, sizeX, sizeY, fig_dir)
 
 beam_1pctile_histfig, onepctile_plot, list_id_label = NoiseRank_histplot(float(nchan))
 thumb_img = 'thumb_' + str(sizeX) + '_' + onepctile_plot
@@ -1406,8 +1423,10 @@ html.write("""</td>
                         <td>
                         <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                         </td>
+                        <td>
                         <a href="{24}" target="_blank"><img src="{25}" width="{26}" height="{27}" alt="thumbnail"></a>
                         </td>
+                        <td>
                         <a href="{28}" target="_blank"><img src="{29}" width="{30}" height="{31}" alt="thumbnail"></a>
                         """.format(askapsoft,
                                    cal_sbid,
@@ -1437,7 +1456,7 @@ html.write("""</td>
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + beam_RatioRMS_plot,
                                    sizeX,
                                    sizeY,
-                                   SEFD_fig,
+                                   SEFD_plot,
                                    fig_dir+'/'+ 'thumb_' + str(sizeX) + '_' + SEFD_plot,
                                    sizeX,
                                    sizeY))
