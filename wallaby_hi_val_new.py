@@ -105,8 +105,12 @@ def get_FitsHeader(fitsimage):
     Getting basic information of processed mosaic
     """
     hdu = getheader(fitsimage)
-    bmaj = round(float(hdu['BMAJ'])*3600., 2)  #arcsec
-    bmin = round(float(hdu['BMIN'])*3600., 2)  #arcsec
+    if 'BMAJ' not in hdu:
+        print ('Synthesized beam info is missing in the header. Abort!')
+        sys.exit(1)
+    else:
+        bmaj = round(float(hdu['BMAJ'])*3600., 2)  #arcsec
+        bmin = round(float(hdu['BMIN'])*3600., 2)  #arcsec
 
     return bmaj, bmin
 
