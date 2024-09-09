@@ -1163,7 +1163,7 @@ else:
 if os.path.isfile(fitsimage):
     header_bmaj, header_bmin = get_FitsHeader(fitsimage)
 else:
-    print ('The image cube does not exist. Abort!')
+    print (f'The image cube {fitsimage} does not exist. Abort!')
     sys.exit()
 
 n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, total_obs_bw = get_Metadata(metafile)
@@ -1215,26 +1215,37 @@ if os.path.isfile(sefdHDF5):
 sizeX = 70
 sizeY = 70
 
-cube_plots = sorted(glob.glob(diagnostics_dir + '/cubestats-' + field + '/*.cube*linmos*.png'))  #Mosaic statistic
-beamNoise_plots = sorted(glob.glob(diagnostics_dir + '/beamNoise*.cube*.png')) #beam-by-beam statistic
-beamMinMax_plots = sorted(glob.glob(diagnostics_dir +'/beamMinMax*.cube*.png')) #beam-by-beam statistic
+cube_plots=[]
+cube_plots.append(diagnostics_dir + '/cubestats-' + field + '/cubePlot-image.restored.' + imagebase + field + '.linmos.png')
+cube_plots.append(diagnostics_dir + '/cubestats-' + field + '/cubePlot-image.restored.' + imagebase + field + '.linmos.contsub.png')
+cube_plots.append(diagnostics_dir + '/cubestats-' + field + '/cubePlot-residual.' + imagebase + field + '.linmos.png')
+
+beamNoise_plots=[]
+beamNoise_plots.append(diagnostics_dir + '/beamNoise_image.restored.' + imagebase + field + '.png')
+beamNoise_plots.append(diagnostics_dir + '/beamNoise_image.restored.' + imagebase + field + '.contsub.png')
+beamNoise_plots.append(diagnostics_dir + '/beamNoise_residual.' + imagebase + field + '.png')
+
+beamMinMax_plots=[]
+beamMinMax_plots.append(diagnostics_dir + '/beamMinMax_image.restored.' + imagebase + field + '.png')
+beamMinMax_plots.append(diagnostics_dir + '/beamMinMax_image.restored.' + imagebase + field + '.contsub.png')
+beamMinMax_plots.append(diagnostics_dir + '/beamMinMax_residual.' + imagebase + field + '.png')
 
 thumb_cubeplots = []
 thumb_beamNoise = []
 thumb_beamMinMax = []
 
 for image in cube_plots:
-    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[2]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[-1]
     thumb_cubeplots.append(thumb_img)
     make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
 for image in beamNoise_plots:
-    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[1]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[-1]
     thumb_beamNoise.append(thumb_img)
     make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
 for image in beamMinMax_plots:
-    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[1]
+    thumb_img = 'thumb_'+ str(sizeX) + '_'+ image.split('/')[-1]
     thumb_beamMinMax.append(thumb_img)
     make_Thumbnail(image, thumb_img, sizeX, sizeY, fig_dir)
 
@@ -1497,24 +1508,24 @@ html.write("""</td>
                     <td>
                     <a href="{20}" target="_blank"><img src="{21}" width="{22}" height="{23}" alt="thumbnail"></a>
                     <br><p>Stdev, MADFM</p>
-                    """.format(beamMinMax_plots[1],
-                               fig_dir+'/'+ thumb_beamMinMax[1],
+                    """.format(beamMinMax_plots[0],
+                               fig_dir+'/'+ thumb_beamMinMax[0],
                                sizeX,
                                sizeY,
-                               beamMinMax_plots[0],
-                               fig_dir+'/'+ thumb_beamMinMax[0],
+                               beamMinMax_plots[1],
+                               fig_dir+'/'+ thumb_beamMinMax[1],
                                sizeX,
                                sizeY,
                                beamMinMax_plots[2],
                                fig_dir+'/'+ thumb_beamMinMax[2],
                                sizeX,
                                sizeY,
-                               beamNoise_plots[1],
-                               fig_dir+'/'+ thumb_beamNoise[1],
-                               sizeX,
-                               sizeY,
                                beamNoise_plots[0],
                                fig_dir+'/'+ thumb_beamNoise[0],
+                               sizeX,
+                               sizeY,
+                               beamNoise_plots[1],
+                               fig_dir+'/'+ thumb_beamNoise[1],
                                sizeX,
                                sizeY,
                                beamNoise_plots[2],
@@ -1606,12 +1617,12 @@ html.write("""</td>
                      <button type = "submit" style="font-size:20px; width=50%; height=50%">Click here</button>
                     </form>
                     <td id='{15}'>{16}
-                    """.format(cube_plots[1],
-                               fig_dir+'/' + thumb_cubeplots[1],
+                    """.format(cube_plots[0],
+                               fig_dir+'/' + thumb_cubeplots[0],
                                sizeX,
                                sizeY,
-                               cube_plots[0],
-                               fig_dir+'/'+ thumb_cubeplots[0],
+                               cube_plots[1],
+                               fig_dir+'/'+ thumb_cubeplots[1],
                                sizeX,
                                sizeY,
                                cube_plots[2],
