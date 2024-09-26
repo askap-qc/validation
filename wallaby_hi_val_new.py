@@ -1168,7 +1168,7 @@ if os.path.isfile(fitsimage):
     header_bmaj, header_bmin = get_FitsHeader(fitsimage)
 else:
     print (f'The image cube {fitsimage} does not exist. Abort!')
-    sys.exit()
+    sys.exit(1)
 
 n_ant, start_obs_date, end_obs_date, tobs, field, ra, dec, total_obs_bw = get_Metadata(metafile)
 askapsoft = get_Version(param)
