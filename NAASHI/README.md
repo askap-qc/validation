@@ -118,7 +118,7 @@ If a required file is missing (mslist, slurm `.sh`, linmos cubeStats, flagging s
   Then run with `--catalogue`, or set `QUERY_CATALOGUE = True`. The VizieR query is slow.
 
 
-## 6. Calculation changes
+## 6. ETC: Calculation changes
 
 **Changes to the FLASH code:**
 - **Missing data channels:** a channel counts as missing when its Max (9th column of the linmos contsub cubeStats) is 0. This rule is unchanged from FLASH.
@@ -144,7 +144,7 @@ If a required file is missing (mslist, slurm `.sh`, linmos cubeStats, flagging s
 
 ### 7. Survey configuration
 
-These are the survey values. NAASHI uses the same band as FLASH (711.5–999.5 MHz), so the FLASH values were kept:
+NAASHI uses the same band as FLASH (711.5–999.5 MHz), so the FLASH values were kept:
 - Tsys 60 K, beam-forming intervals every 5 MHz from 713.5 MHz;
 - QC thresholds (beam logs, bad channels, noise rank);
 - report title and contact.
