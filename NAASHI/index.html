@@ -1,0 +1,292 @@
+<!DOCTYPE HTML>
+              <html>
+                    <head>
+                    <style>
+                  body {
+                        background-color: white;
+                  }
+                  h1 {
+                      color: black;
+                  }
+                  h4 {
+                      color: black;
+                  }
+                  p {
+                     color: black;
+                  }
+                  th, td {
+                         padding: 5px;
+                  }
+                  table {
+                         width: "100%";
+                         border: "1";
+                         border-spacing: 2px;
+                  }
+                  img {
+                       border: 1px solid #ddd; /* Gray border */
+                       border-radius: 4px;
+                       padding: 5px;
+                  }
+                  #good {
+                         background-color:#00FF00;
+                  }
+                  #ok {
+                         background-color:#FFD700;
+                  }
+                  #bad {
+                         background-color:#CD5C5C;
+                  }
+                  </style>
+                    </head>
+                    <body>
+                    <center>
+                    <title>ASKAP NAASHI Spectral Line Data Validation Report</title>
+                    <table width="100%" border="0">
+                    <tr>
+                        <th style="width:220"><img style="border:none;" src="" width="220" align="center"></th>
+                        <th><h1 align="center"><font color="blue">NAASHI</font> Spectral Line Data Validation Report</h1>
+			<th style="width:220"><img style="border:none;" src="" width="220" align="center"></th>
+		    </tr></table><h2 align="middle">Observation</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>SBID</th>
+                        <th>No. of Antennas</th>
+                        <th>Obs Start Date/Time<br>(UTC)</th>
+                        <th>Obs End Date/Time<br>(UTC)</th>
+                        <th>Duration<br>(hr)</th>
+                        <th>Field</th>
+                        <th>R.A.</th>
+                        <th>Decl.</th>
+                        <th>Total Bandwidth <br>(MHz)</th>
+                    </tr>
+		    <tr></tr>
+                    <tr align="middle">
+                        <td>89430</td>
+                        <td>36</td>
+                        <td>18-Oct-2026/03:43:23.2</td>
+                        <td>18-Oct-2026/05:43:39.4</td>
+                        <td>2.0</td>
+                        <td>NAASHI_143</td>
+                        <td>14:17:52.3</td>
+                        <td>+37:37:54.0</td>
+                        <td>288.0</td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Processed Image Cube</h2>
+                    <table width="100%" border="1">
+                    <tr>
+                        <th>ASKAPsoft<br>version</th>
+                        <th>Cal SBID</th>
+                        <th>Frequency Range<br>(MHz)</th>
+                        <th>Central Frequency<br>(MHz)</th>
+                        <th>No. of Channels</th>
+                        <th>Channel Width<br>(kHz)</th>
+                        <th>Synthesised Beam<br>(arcsec &times; arcsec)</th>
+                        <th>Beam Logs</th>
+                        <th>Flagged Fractions</th>
+                        <th>Flagged Antennas</th>
+                        <th>Expected RMS</th>
+                    </tr>
+                    <tr align="middle">
+                        <td>1.24.0</td>
+                        <td>89429</td>
+                        <td>711.5--999.481</td>
+                        <td>855.4907</td>
+                        <td>15552</td>
+                        <td>18.519</td>
+                        <td>38.58 &times; 19.19</td>
+                        <td>
+                        <a href="Figures/beamlogs_qc_SB89430.png" target="_blank"><img src="Figures/thumb_70_beamlogs_qc_SB89430.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="Figures/FlagStat.png" target="_blank"><img src="Figures/thumb_70_FlagStat.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                        <td>
+                        <a href="Figures/FlagAnt.png" target="_blank"><img src="Figures/thumb_70_FlagAnt.png" width="70" height="70" alt="thumbnail"></a>
+                          <form action="Figures/flagged_antenna.txt" method="get" target="_blank">
+                          <button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button>
+                         </form>
+                        </td>
+                        <td>
+                        <a href="Figures/Exp_RMS.png" target="_blank"><img src="Figures/thumb_70_Exp_RMS.png" width="70" height="70" alt="thumbnail"></a>
+                        </td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Beam Statistics</h2>
+                    <table width="100%" border="1" style="table-layout:fixed">
+                    <colgroup><col style="width:50.0000%"><col style="width:50.0000%"></colgroup>
+                    <tr>
+                    <th>Beam Image Cube</th>
+                    <th>Continuum Subtracted Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/beamMinMax_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1-percentile</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamMinMax_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.contsub.png" target="_blank"><img src="Figures/thumb_70_beamMinMax_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Min, Max, 1-percentile</p>
+                    </td>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="diagnostics/beamNoise_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.png" target="_blank"><img src="Figures/thumb_70_beamNoise_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    </td>
+                    <td>
+                    <a href="diagnostics/beamNoise_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.contsub.png" target="_blank"><img src="Figures/thumb_70_beamNoise_image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Stdev, MADFM</p>
+                    </td>
+                    </tr>
+                    </table>
+                    <br><table width="100%" border="1">
+                    <tr>
+                    <th colspan="4">Continuum Subtracted Beam Cube</th>
+                    </tr>
+                    <tr align="middle">
+                    <td>
+                    <a href="Figures/beamStat_MADMFD.png" target="_blank"><img src="Figures/thumb_70_beamStat_MADMFD.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>MAD of Max Flux Density</p>
+                    </td>
+                    <td>
+                    <a href="Figures/beamStat_MeanRMS.png" target="_blank"><img src="Figures/thumb_70_beamStat_MeanRMS.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Mean RMS</p>
+                    </td>
+                    <td>
+                    <a href="Figures/beamStat_MedianRMS.png" target="_blank"><img src="Figures/thumb_70_beamStat_MedianRMS.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>Median RMS</p>
+                    </td>
+                    <td>
+                    <a href="Figures/beam_1pctile_hist_SB89430.png" target="_blank"><img src="Figures/thumb_70_beam_1pctile_hist_SB89430.png" width="70" height="70" alt="thumbnail"></a>
+                    <a href="Figures/beam_1pctile_qc_SB89430.png" target="_blank"><img src="Figures/thumb_70_beam_1pctile_qc_SB89430.png" width="70" height="70" alt="thumbnail"></a>
+                    <br><p>1-percentile noise rank</p>
+                    </td>
+                    </tr>
+                    </table>
+                    <h2 align="middle">Mosaic Statistics</h2>
+                    <table width="100%" border="1" style="table-layout:fixed">
+                    <colgroup><col style="width:16.6667%"><col style="width:16.6667%"><col style="width:16.6667%"><col style="width:16.6667%"><col style="width:16.6667%"><col style="width:16.6667%"></colgroup>
+                    <tr>
+                    <th colspan="3">Image Cube</th>
+                    <th colspan="3">Continuum Subtracted Cube</th>
+                    </tr>
+		    <tr align="middle">
+                    <td colspan="3">
+                    <a href="diagnostics/cubestats-NAASHI_143/cubePlot-image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.linmos.png" target="_blank"><img src="Figures/thumb_70_cubePlot-image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.linmos.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    <td colspan="3">
+                    <a href="diagnostics/cubestats-NAASHI_143/cubePlot-image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.linmos.contsub.png" target="_blank"><img src="Figures/thumb_70_cubePlot-image.restored.i.NAASHI_143.SB89430.cube.NAASHI_143.linmos.contsub.png" width="70" height="70" alt="thumbnail"></a>
+                    </td>
+                    </tr>
+                    <tr>
+                    <th colspan="2">Number of Bad Quality Channels</th>
+                    <th colspan="2">Number of Missing Data Channels</th>
+                    <th colspan="2">Catalogue Statistics</th>
+                    </tr>
+                    <tr align="middle">
+                    <td colspan="2"><br>n= 25
+                    <br><br><form action="Figures/mosaic_bad_chan.txt" method="get" target="_blank">
+			<button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button>
+                    </form>
+		    </td>
+                    <td colspan="2"><br>n= 0
+                    <br><br><form action="Figures/mosaic_missing_data.txt" method="get" target="_blank">
+			<button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button>
+                    </form>
+                    </td>
+                    <td colspan="2" align="left">Number of components: 12247<br>Number of components brighter than 30 mJy: 565<br>Total number of spectra extracted: 565
+                    </td>
+                    </td>
+              </tr>
+              </table>
+              <h2 align="middle">Spectra Extracted from 15 Brightest Sources</h2>
+              <table width="100%" border="1">
+              <tr align="middle">
+<td>
+              <a href="Figures/SB89430_component_1a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_1a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 1a<br>J141604+344436</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_2a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_2a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 2a<br>J141043+364721</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_3a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_3a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 3a<br>J140644+341130</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_4a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_4a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 4a<br>J140319+350811</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_5a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_5a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 5a<br>J140909+364207</p>
+              </td>
+              </tr>
+<tr align="middle">
+<td>
+              <a href="Figures/SB89430_component_6a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_6a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 6a<br>J142543+335533</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_7a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_7a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 7a<br>J142123+393332</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_8a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_8a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 8a<br>J135847+390402</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_9a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_9a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 9a<br>J142428+395319</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_10a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_10a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 10a<br>J142905+342641</p>
+              </td>
+              </tr>
+<tr align="middle">
+<td>
+              <a href="Figures/SB89430_component_11a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_11a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 11a<br>J140506+341015</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_12a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_12a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 12a<br>J140311+382823</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_13a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_13a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 13a<br>J141425+345843</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_14a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_14a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 14a<br>J140235+342820</p>
+              </td>
+              <td>
+              <a href="Figures/SB89430_component_15a_flux.png" target="_blank"><img src="Figures/thumb_250_SB89430_component_15a_flux.png" height="250" alt="thumbnail"></a>
+              <br><p>Component 15a<br>J143457+380450</p>
+              </td>
+              </tr>
+</table>
+<h2 align="middle">Spectral and Continuum Noise Statistics</h2>
+<table width="100%" border="1" style="table-layout:fixed">
+<tr><th>Spectral Noise: Inside vs Outside 3.2 deg<br>(Noise Spectra)</th><th>RMS Noise vs Distance From Field Centre<br>(Noise Spectra)</th><th>Spectral Noise Sky Distribution<br>(Noise Spectra)</th><th>Continuum Noise Sky Distribution<br>(Continuum Image)</th><th>Distribution of Bright Components<br>(Continuum Image)</th></tr>
+<tr align="middle">
+<td><a href="Figures/noise/SB89430_all_components.png" target="_blank"><img src="Figures/thumb_250_SB89430_all_components.png" width="177" alt="thumbnail"></a><br><form action="Figures/noise/SB89430_combined_all.txt" method="get" target="_blank"><button type = "submit" style="font-size:15px; width=50%; height=50%">Click here</button></form></td>
+<td><a href="Figures/noise/SB89430_rms_vs_dist_fieldcentre.png" target="_blank"><img src="Figures/thumb_250_SB89430_rms_vs_dist_fieldcentre.png" width="177" alt="thumbnail"></a><br></td>
+<td><a href="Figures/noise/noise_sky_SB89430.png" target="_blank"><img src="Figures/thumb_250_noise_sky_SB89430.png" width="177" alt="thumbnail"></a><br></td>
+<td><a href="Figures/noise/continuum_noise_sky_SB89430.png" target="_blank"><img src="Figures/thumb_250_continuum_noise_sky_SB89430.png" width="177" alt="thumbnail"></a><br></td>
+<td><a href="Figures/footprint_continuum_NAASHI_143_SB89430.png" target="_blank"><img src="Figures/thumb_250_footprint_continuum_NAASHI_143_SB89430.png" width="177" alt="thumbnail"></a><br></td>
+</tr>
+</table>
+
+
+
+              <p align=left>
+              Generated at 2026-11-24 16:36:10.995019 <br>
+              <i> Report bugs to
+              <a href="mailto:hiyoon.astro@gmail.com">Hyein Yoon</a></i>
+              </p>
+              </body>
+              </html>
