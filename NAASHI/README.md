@@ -1,13 +1,13 @@
 # ASKAP-NAASHI spectral line validation report
 
-`askapnaashi_validation.py` builds the NAASHI validation report: an HTML page (`index.html`) plus a `Figures/` folder. It is based on the ASKAP-FLASH script (`askapflash_validation_17sep2021.py`) and the report has almost the same structure. If you know the FLASH script, this README lists what you need to know to run this one, and what is different.
+`askapnaashi_validation.py` builds the NAASHI validation report: an HTML page (`index.html`) plus a `Figures/` folder. It is based on the ASKAP-FLASH script (`askapflash_validation_17sep2021.py`) and the report has almost the same structure. 
 
 
 ## 1. Requirements
 
 - Python 3
 - numpy, scipy, astropy, matplotlib, Pillow
-- astroquery: only needed if you re-enable the RACS-low catalogue query (see section 6).
+- astroquery: only needed if you re-enable the RACS-low catalogue query (see section 5).
 - Linux or macOS: the script calls `grep`, `sed`, `tail` and `rm`, as the FLASH script did.
 
 
